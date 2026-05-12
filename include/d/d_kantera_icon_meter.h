@@ -30,6 +30,15 @@ public:
 
     void drawSelf() { mpKanteraIcon->draw(); }
 
+#if TARGET_PC
+    // PC-only accessors so mods can adjust the gauge widget beyond what
+    // setNowGauge / setPos / setScale / setAlphaRate cover (e.g. tinting
+    // the bar). Hidden from decomp-matching PowerPC builds because adding
+    // members to this class would shift the binary layout.
+    CPaneMgr* getGaugePane() { return mpGauge; }
+    CPaneMgr* getParentPane() { return mpParent; }
+#endif
+
 private:
     /* 0x04 */ dDlst_KanteraIcon_c* mpKanteraIcon;
     /* 0x08 */ CPaneMgr* mpParent;
