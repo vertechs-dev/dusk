@@ -141,6 +141,14 @@ if (data) {
 - Always call `free_resource`, the buffer is owned by miniz
 - For writable storage, write files under `api->mod_dir`
 
+`add_dusk_mod` tracks every file under `RES_DIR` as a dependency of the
+`.dusk` archive, so editing a resource (e.g. a JSON config) and rebuilding
+correctly repacks the archive even when no source file changed. New files
+added to `res/` between builds are picked up automatically — the glob is
+re-evaluated each build via CMake's `CONFIGURE_DEPENDS`. If you suspect
+a stale archive, rebuild from a clean state (`cmake --build … --clean-first`)
+to force the repack unconditionally.
+
 ---
 
 ## ImGui Integration
