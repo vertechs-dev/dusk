@@ -1,9 +1,13 @@
+#define PROCS_DUMP_NAMES 1
+
 #include "imgui.h"
+#include "imgui_internal.h"  // ImFormatString — avoids needing <cstdio> in this TU
 
 #include "ImGuiMenuTools.hpp"
 #include "d/actor/d_a_alink.h"
 #include "d/d_com_inf_game.h"
 #include "f_op/f_op_actor_mng.h"
+#include "f_pc/f_pc_name.h"
 #include "SSystem/SComponent/c_sxyz.h"
 #include "SSystem/SComponent/c_xyz.h"
 
@@ -26,6 +30,7 @@ struct ActorSpawnerState {
     bool hasResult = false;
     unsigned int lastResult = 0;
     int lastAttempted = 0;
+    ImGuiTextFilter nameFilter;
 };
 
 ActorSpawnerState s_state;
@@ -46,6 +51,42 @@ void ImGuiMenuTools::ShowActorSpawner() {
 
     ImGui::SeparatorText("Actor");
     ImGui::InputInt("Actor ID", &s_state.actorId);
+    // Resolve the current Actor ID to its proc name so direct numeric entry
+    // gets instant feedback. GetProcName returns nullptr for IDs outside the
+    // enum range; show "(unknown)" in that case so the field is never blank.
+    const char* resolvedName = GetProcName((unsigned int)s_state.actorId);
+    ImGui::SameLine();
+    if (resolvedName != nullptr) {
+        ImGui::TextDisabled("= %s (0x%X)", resolvedName, s_state.actorId);
+    } else {
+        ImGui::TextDisabled("= (unknown)");
+    }
+
+    // Filterable proc-name lookup. ImGuiTextFilter handles case-insensitive
+    // substring matching across multi-token queries ("e_oc"), and the list
+    // box scrolls naturally when the filter is empty (~792 entries). Both
+    // hex ID and name are shown so the user can learn the mapping over time.
+    s_state.nameFilter.Draw("Filter##actor_name", 200.0f);
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Clear##actor_name")) {
+        s_state.nameFilter.Clear();
+    }
+    if (ImGui::BeginListBox("##actor_name_list", ImVec2(-1, 8 * ImGui::GetTextLineHeightWithSpacing()))) {
+        for (const auto& proc : procNames) {
+            if (!s_state.nameFilter.PassFilter(proc.name)) continue;
+            char label[96];
+            ImFormatString(label, sizeof(label), "0x%03X  %s", proc.id, proc.name);
+            const bool selected = ((unsigned int)s_state.actorId == proc.id);
+            if (ImGui::Selectable(label, selected)) {
+                s_state.actorId = (int)proc.id;
+            }
+            if (selected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndListBox();
+    }
+
     ImGui::InputInt("Params (hex)", &s_state.params, 0, 0, ImGuiInputTextFlags_CharsHexadecimal);
     ImGui::InputInt("Argument", &s_state.argument);
     s_state.argument = (s_state.argument < -128) ? -128 : (s_state.argument > 127) ? 127 : s_state.argument;
