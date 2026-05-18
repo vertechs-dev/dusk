@@ -94,6 +94,12 @@ public:
     // inheritance chain of dCcD_Sph, and decomp's STATIC_ASSERT is a no-op
     // on non-MWERKS builds so the mismatch isn't caught at compile time.
     dCcD_Sph* getSphsAt() { return mSphs_at; }
+    // Reference accessor for the post-hit damage cooldown timer
+    // (`field_0x6cc`). damage_check() sets this to 10 frames after a normal
+    // sword hit and early-exits while it's non-zero, so rapid follow-up
+    // attacks within ~167ms get silently dropped. Mods that scale attack
+    // speed need to shorten this to keep tight combos landing every hit.
+    s16& getDamageCooldownRef() { return field_0x6cc; }
 #endif
 
 private:
