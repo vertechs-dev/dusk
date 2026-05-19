@@ -110,6 +110,24 @@ public:
 
     void setModelMatrix(MtxP mtx) { mpModel->setBaseTRMtx(mtx); }
 
+#if TARGET_PC
+    // Mod accessor (PC-only): expose the arrow's attack capsule so mods can
+    // resize its hitbox per-instance without offset-cast hacks. Same Pattern A
+    // as daE_OC_c::getSphsAt / dKantera_icon_c::getGaugePane. Inline, no data
+    // members added, no virtuals — ABI-neutral, vanilla Dusk binaries
+    // unchanged. Gated #if TARGET_PC so PowerPC decomp builds are untouched.
+    dCcD_Cps* getCollisionCps() { return &field_0x688; }
+
+    // Pointer-to-pointer accessor so mods can swap the arrow's J3D model for
+    // a custom one (e.g., Link's current sword model, Lantern model). Returns
+    // J3DModel** so mods can both READ the current model and WRITE a swap.
+    // Caller is responsible for memory ownership — if you swap permanently,
+    // the arrow's destructor will free YOUR model, not the original. The
+    // safe pattern is swap-before-draw, restore-after-draw via pre/post hooks
+    // on draw().
+    J3DModel** getMpModelPtr() { return &mpModel; }
+#endif
+
 private:
     /* 0x568 */ J3DModel* mpModel;
     /* 0x56C */ dBgS_ArrowLinChk field_0x56c;
