@@ -94,6 +94,19 @@ public:
     void offRupeeSoundBit(int bit) { mRupeeSound &= ~(1 << bit); }
     bool isRupeeSoundBit(int bit) { return mRupeeSound & (1 << bit); }
     dMeter2Draw_c* getMeterDrawPtr() { return mpMeterDraw; }
+
+#if TARGET_PC
+    // Force the next moveButtonA() to re-fire drawButtonA (which in
+    // turn re-runs getActionString, refreshing the A-button label
+    // text). Used by tp-combat-mod to keep the lock-on combat prompt
+    // in sync with stick state — moveButtonA's normal dirty-detect
+    // only fires on engine status / scale / talk-state changes, so a
+    // stick-direction change alone leaves the cached prompt stale.
+    // Setting mDoStatus to 0xFF (no real status uses that value)
+    // guarantees `mDoStatus != dComIfGp_getDoStatus()` next frame.
+    // Inline + no new data members + no virtuals → ABI-neutral.
+    void markButtonADirty() { mDoStatus = 0xFF; }
+#endif
     s16 getNowLifeGauge() { return mNowLifeGauge; }
     u8 getSubContents() { return mSubContentType; }
     u16 getSubContentsStringType() { return mSubContentsStringType; }
