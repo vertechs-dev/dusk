@@ -5,7 +5,11 @@
 #include <vector>
 
 #include "dusk/mod_api.h"
-#include "miniz.h"
+
+namespace dusk::modding {
+class ModBundle;
+class NativeModule;
+}
 
 namespace dusk {
 
@@ -19,17 +23,18 @@ struct RmlTabUpdateCallback {
     void* userdata;
 };
 
-struct LoadedMod {
+struct ModMetadata {
+    std::string id;
     std::string name;
     std::string version;
     std::string author;
     std::string description;
-    std::string mod_path;
-    std::string dir;
+    bool hasCode;
+};
 
-    void* handle = nullptr;
-    bool active = false;
-    bool load_failed = false;
+struct NativeMod {
+    std::unique_ptr<modding::NativeModule> handle;
+    DuskModAPI api{};
 
     using FnInit = void (*)(DuskModAPI*);
     using FnTick = void (*)(DuskModAPI*);
@@ -38,12 +43,18 @@ struct LoadedMod {
     FnInit fn_init = nullptr;
     FnTick fn_tick = nullptr;
     FnCleanup fn_cleanup = nullptr;
+};
 
-    DuskModAPI api{};
+struct LoadedMod {
+    ModMetadata metadata;
+    std::string mod_path;
+    std::string dir;
 
-    std::vector<uint8_t> zip_data;
-    mz_zip_archive res_zip{};
-    bool res_zip_open = false;
+    bool active = false;
+    bool load_failed = false;
+
+    std::unique_ptr<NativeMod> native;
+    std::unique_ptr<modding::ModBundle> bundle;
 
     std::vector<RmlTabContentCallback> tab_content;
     std::vector<RmlTabUpdateCallback> tab_updates;
@@ -65,8 +76,10 @@ private:
     std::filesystem::path m_modsDir;
     bool m_initialized = false;
 
-    void tryLoadDusk(const std::filesystem::path& modPath);
+    void tryLoadDusk(const std::filesystem::path& modPath, bool fromDir);
+    bool tryLoadNativeMod(LoadedMod& mod);
     void buildAPI(LoadedMod& mod);
+    void initOverlayFiles();
 };
 
 }  // namespace dusk

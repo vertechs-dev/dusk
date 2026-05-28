@@ -33,10 +33,17 @@ static constexpr std::string_view StubFragments[] = {
     "but selective updates are not implemented"sv,
 };
 
+#if _WIN32
+#define DUSK_FILENO _fileno
+#else
+#define DUSK_FILENO fileno
+#endif
+
 namespace {
 // On macOS, std::mutex becomes poisoned when its dtor is run.
 // We use this to check if the LogState is destroyed before attempting to acquire it.
 std::atomic g_logStateAlive(true);
+std::atomic<int> g_logFd(-1);
 
 struct LogState {
     std::mutex mutex;
@@ -54,6 +61,7 @@ struct LogState {
         }
         std::lock_guard lock(mutex);
         if (file != nullptr) {
+            g_logFd.store(-1, std::memory_order_release);
             std::fflush(file);
             std::fclose(file);
             file = nullptr;
@@ -95,7 +103,7 @@ std::string MakeTimestampedLogName() {
 #endif
 
     std::array<char, 32> buffer{};
-    std::strftime(buffer.data(), buffer.size(), "dusk-%Y%m%d-%H%M%S.log", &localTime);
+    std::strftime(buffer.data(), buffer.size(), "dusklight-%Y%m%d-%H%M%S.log", &localTime);
     return buffer.data();
 }
 
@@ -108,6 +116,16 @@ void WriteLogLine(FILE* out, const char* levelStr, const char* module, const cha
     std::fwrite(message, 1, len, out);
     std::fputc('\n', out);
     std::fflush(out);
+}
+
+void WriteLogLineToFile(
+    const char* levelStr, const char* module, const char* message, unsigned int len) {
+    if (g_logStateAlive.load(std::memory_order_acquire)) {
+        std::lock_guard lock(g_logState.mutex);
+        if (g_logState.file != nullptr) {
+            WriteLogLine(g_logState.file, levelStr, module, message, len);
+        }
+    }
 }
 }  // namespace
 
@@ -132,6 +150,11 @@ void aurora_log_callback(AuroraLogLevel level, const char* module, const char* m
         return;
     }
 
+    if (module == nullptr) {
+        module = "";
+    }
+
+    const char* levelStr = LogLevelString(level);
     int android_log_level = 0;
     switch (level) {
     case LOG_DEBUG:
@@ -151,11 +174,13 @@ void aurora_log_callback(AuroraLogLevel level, const char* module, const char* m
         break;
     }
 
-    std::stringstream msgStream(message);
+    std::stringstream msgStream(std::string(message, len));
     std::string segment;
     while(std::getline(msgStream, segment)) {
         __android_log_print(android_log_level, module, "%s\n", segment.c_str());
     }
+
+    WriteLogLineToFile(levelStr, module, message, len);
 
     if (level == LOG_FATAL) {
         abort();
@@ -177,13 +202,7 @@ void aurora_log_callback(AuroraLogLevel level, const char* module, const char* m
     const char* levelStr = LogLevelString(level);
     FILE* out = LogStreamForLevel(level);
     WriteLogLine(out, levelStr, module, message, len);
-
-    if (g_logStateAlive.load(std::memory_order_acquire)) {
-        std::lock_guard lock(g_logState.mutex);
-        if (g_logState.file != nullptr) {
-            WriteLogLine(g_logState.file, levelStr, module, message, len);
-        }
-    }
+    WriteLogLineToFile(levelStr, module, message, len);
 
     if (level == LOG_FATAL) {
         abort();
@@ -221,6 +240,7 @@ void dusk::InitializeFileLogging(const std::filesystem::path& configDir, AuroraL
     }
 
     g_logState.filePath = logPath.u8string();
+    g_logFd.store(DUSK_FILENO(g_logState.file), std::memory_order_release);
     aurora::g_config.logCallback = &aurora_log_callback;
     aurora::g_config.logLevel = logLevel;
     WriteLogLine(g_logState.file, "INFO", "dusk", "File logging initialized", 24);
@@ -240,4 +260,8 @@ const char* dusk::GetLogFilePath() {
     std::lock_guard lock(g_logState.mutex);
     return reinterpret_cast<const char*>(
         g_logState.filePath.empty() ? nullptr : g_logState.filePath.c_str());
+}
+
+int dusk::GetLogFileDescriptor() {
+    return g_logFd.load(std::memory_order_acquire);
 }

@@ -33,7 +33,11 @@
           "value": true
         },
         "DUSK_SENTRY_DSN": "$env{SENTRY_DSN}",
-        "DUSK_SENTRY_ENVIRONMENT": "production"
+        "DUSK_SENTRY_ENVIRONMENT": "production",
+        "Rust_RUSTUP_INSTALL_MISSING_TARGET": {
+          "type": "BOOL",
+          "value": true
+        }
       }
     },
     {
@@ -249,22 +253,11 @@
           "type": "BOOL",
           "value": false
         },
-        "CMAKE_DISABLE_FIND_PACKAGE_BZip2": {
+        "CMAKE_DISABLE_FIND_PACKAGE_PkgConfig": {
           "type": "BOOL",
           "value": true
         },
-        "CMAKE_DISABLE_FIND_PACKAGE_LibLZMA": {
-          "type": "BOOL",
-          "value": true
-        },
-        "CMAKE_DISABLE_FIND_PACKAGE_zstd": {
-          "type": "BOOL",
-          "value": true
-        },
-        "CMAKE_DISABLE_FIND_PACKAGE_Freetype": {
-          "type": "BOOL",
-          "value": true
-        }
+        "CMAKE_IGNORE_PREFIX_PATH": "/opt/homebrew"
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
@@ -329,7 +322,13 @@
       "cacheVariables": {
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install",
         "CMAKE_TOOLCHAIN_FILE": "$env{ANDROID_HOME}/ndk/$env{ANDROID_NDK_VERSION}/build/cmake/android.toolchain.cmake",
-        "ANDROID_PLATFORM": "android-28"
+        "ANDROID_PLATFORM": "android-28",
+        "BUILD_SHARED_LIBS": {
+          "type": "BOOL",
+          "value": false
+        },
+        "AURORA_SDL3_VERSION": "3.4.8",
+        "AURORA_SDL3_REF": "refs/tags/release-3.4.8"
       }
     },
     {
@@ -416,7 +415,7 @@
         },
         "CMAKE_OSX_DEPLOYMENT_TARGET": "11.0",
         "CMAKE_IGNORE_PREFIX_PATH": "/opt/homebrew",
-        "DUSK_MOVIE_SUPPORT": {
+        "BUILD_SHARED_LIBS": {
           "type": "BOOL",
           "value": false
         }
@@ -437,7 +436,6 @@
         "x-macos-ci"
       ],
       "cacheVariables": {
-        "AURORA_DAWN_PROVIDER": "vendor",
         "CMAKE_OSX_ARCHITECTURES": "x86_64",
         "Rust_CARGO_TARGET": "x86_64-apple-darwin"
       }
@@ -449,11 +447,7 @@
       ],
       "cacheVariables": {
         "CMAKE_C_COMPILER_LAUNCHER": "sccache",
-        "CMAKE_CXX_COMPILER_LAUNCHER": "sccache",
-        "DUSK_MOVIE_SUPPORT": {
-          "type": "BOOL",
-          "value": false
-        }
+        "CMAKE_CXX_COMPILER_LAUNCHER": "sccache"
       }
     },
     {
@@ -463,11 +457,7 @@
       ],
       "cacheVariables": {
         "CMAKE_C_COMPILER_LAUNCHER": "sccache",
-        "CMAKE_CXX_COMPILER_LAUNCHER": "sccache",
-        "DUSK_MOVIE_SUPPORT": {
-          "type": "BOOL",
-          "value": false
-        }
+        "CMAKE_CXX_COMPILER_LAUNCHER": "sccache"
       }
     },
     {
@@ -505,7 +495,10 @@
       "inherits": [
         "x-windows-ci",
         "windows-arm64-msvc"
-      ]
+      ],
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "arm64-windows"
+      }
     }
   ],
   "buildPresets": [
@@ -551,7 +544,7 @@
       "description": "iOS release build with debug info",
       "displayName": "iOS RelWithDebInfo",
       "targets": [
-        "dusk"
+        "dusklight"
       ]
     },
     {
@@ -560,7 +553,7 @@
       "description": "tvOS release build with debug info",
       "displayName": "tvOS RelWithDebInfo",
       "targets": [
-        "dusk"
+        "dusklight"
       ]
     },
     {
@@ -569,7 +562,7 @@
       "description": "Android arm64-v8a release build with debug info",
       "displayName": "Android arm64-v8a RelWithDebInfo",
       "targets": [
-        "dusk"
+        "dusklight"
       ]
     },
     {
@@ -578,7 +571,7 @@
       "description": "Android x86_64 release build with debug info",
       "displayName": "Android x86_64 RelWithDebInfo",
       "targets": [
-        "dusk"
+        "dusklight"
       ]
     },
     {
@@ -587,7 +580,7 @@
       "description": "(Internal) Android CI arm64-v8a",
       "displayName": "(Internal) Android CI arm64-v8a",
       "targets": [
-        "dusk"
+        "dusklight"
       ]
     },
     {

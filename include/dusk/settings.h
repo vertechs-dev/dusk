@@ -1,6 +1,8 @@
 #ifndef DUSK_CONFIG_H
 #define DUSK_CONFIG_H
 
+#include <array>
+
 #include "dusk/config_var.hpp"
 
 namespace dusk {
@@ -11,6 +13,17 @@ enum class BloomMode : int {
     Off = 0,
     Classic = 1,
     Dusk = 2,
+};
+
+enum class DepthOfFieldMode : int {
+    Off = 0,
+    Classic = 1,
+    Dusk = 2,
+};
+
+enum class Resampler : int {
+    Bilinear = 0,
+    Area = 1,
 };
 
 enum class GameLanguage : u8 {
@@ -32,11 +45,35 @@ enum class GyroMode : u8 {
     Mouse = 1,
 };
 
+enum class FrameInterpMode : u8 {
+    Off = 0,
+    Capped = 1,
+    Unlimited = 2,
+};
+
+enum class MenuScaling : u8 {
+    GameCube = 0,
+    Wii = 1,
+    Dusklight = 2,
+};
+
 namespace config {
 template <>
 struct ConfigEnumRange<BloomMode> {
     static constexpr auto min = BloomMode::Off;
     static constexpr auto max = BloomMode::Dusk;
+};
+
+template <>
+struct ConfigEnumRange<DepthOfFieldMode> {
+    static constexpr auto min = DepthOfFieldMode::Off;
+    static constexpr auto max = DepthOfFieldMode::Dusk;
+};
+
+template <>
+struct ConfigEnumRange<Resampler> {
+    static constexpr auto min = Resampler::Bilinear;
+    static constexpr auto max = Resampler::Area;
 };
 
 template <>
@@ -56,7 +93,19 @@ struct ConfigEnumRange<GyroMode> {
     static constexpr auto min = GyroMode::Sensor;
     static constexpr auto max = GyroMode::Mouse;
 };
-}
+
+template <>
+struct ConfigEnumRange<FrameInterpMode> {
+    static constexpr auto min = FrameInterpMode::Off;
+    static constexpr auto max = FrameInterpMode::Unlimited;
+};
+
+template <>
+struct ConfigEnumRange<MenuScaling> {
+    static constexpr auto min = MenuScaling::GameCube;
+    static constexpr auto max = MenuScaling::Dusklight;
+};
+}  // namespace config
 
 // Persistent user settings
 
@@ -70,6 +119,7 @@ struct UserSettings {
         ConfigVar<bool> lockAspectRatio;
         ConfigVar<bool> enableFpsOverlay;
         ConfigVar<int> fpsOverlayCorner;
+        ConfigVar<int> maxFrameRate;
     } video;
 
     struct {
@@ -107,6 +157,7 @@ struct UserSettings {
         ConfigVar<bool> instantText;
         ConfigVar<bool> sunsSong;
         ConfigVar<bool> autoSave;
+        ConfigVar<bool> enhancedMapMenus;
 
         // Preferences
         ConfigVar<bool> enableMirrorMode;
@@ -115,16 +166,21 @@ struct UserSettings {
         ConfigVar<bool> enableLinkDollRotation;
         ConfigVar<bool> enableAchievementToasts;
         ConfigVar<bool> enableControllerToasts;
+        ConfigVar<bool> enableDiscordPresence;
+        ConfigVar<MenuScaling> menuScalingMode;
 
         // Graphics
         ConfigVar<BloomMode> bloomMode;
         ConfigVar<float> bloomMultiplier;
+        ConfigVar<DepthOfFieldMode> depthOfFieldMode;
         ConfigVar<bool> disableWaterRefraction;
-        ConfigVar<bool> enableFrameInterpolation;
+        ConfigVar<bool> enableTextureReplacements;
+        ConfigVar<FrameInterpMode> enableFrameInterpolation;
         ConfigVar<int> internalResolutionScale;
         ConfigVar<int> shadowResolutionMultiplier;
-        ConfigVar<bool> enableDepthOfField;
+        ConfigVar<Resampler> resampler;
         ConfigVar<bool> enableMapBackground;
+        ConfigVar<bool> disableCutscenePillarboxing;
 
         // Audio
         ConfigVar<bool> noLowHpSound;
@@ -144,6 +200,10 @@ struct UserSettings {
         ConfigVar<bool> freeCamera;
         ConfigVar<bool> invertCameraXAxis;
         ConfigVar<bool> invertCameraYAxis;
+        ConfigVar<bool> invertFirstPersonXAxis;
+        ConfigVar<bool> invertFirstPersonYAxis;
+        ConfigVar<bool> invertAirSwimX;
+        ConfigVar<bool> invertAirSwimY;
         ConfigVar<float> freeCameraSensitivity;
         ConfigVar<bool> debugFlyCam;
         ConfigVar<bool> debugFlyCamLockEvents;
@@ -152,6 +212,7 @@ struct UserSettings {
         // Cheats
         ConfigVar<bool> infiniteHearts;
         ConfigVar<bool> infiniteArrows;
+        ConfigVar<bool> infiniteSeeds;
         ConfigVar<bool> infiniteBombs;
         ConfigVar<bool> infiniteOil;
         ConfigVar<bool> infiniteOxygen;
@@ -162,19 +223,26 @@ struct UserSettings {
         ConfigVar<bool> alwaysGreatspin;
         ConfigVar<bool> enableFastIronBoots;
         ConfigVar<bool> canTransformAnywhere;
+        ConfigVar<bool> fastRoll;
         ConfigVar<bool> fastSpinner;
         ConfigVar<bool> freeMagicArmor;
+        ConfigVar<bool> invincibleEnemies;
 
         // Technical
         ConfigVar<bool> restoreWiiGlitches;
 
         // Controls
         ConfigVar<bool> enableTurboKeybind;
+        ConfigVar<bool> enableResetKeybind;
 
         // Tools
         ConfigVar<bool> speedrunMode;
         ConfigVar<bool> liveSplitEnabled;
+        ConfigVar<bool> showSpeedrunRTATimer;
         ConfigVar<bool> recordingMode;
+        ConfigVar<bool> removeQuestMapMarkers;
+        ConfigVar<bool> showInputViewer;
+        ConfigVar<bool> showInputViewerGyro;
     } game;
 
     struct {
@@ -184,11 +252,18 @@ struct UserSettings {
         ConfigVar<bool> skipPreLaunchUI;
         ConfigVar<bool> showPipelineCompilation;
         ConfigVar<bool> wasPresetChosen;
-        ConfigVar<bool> enableCrashReporting;
         ConfigVar<bool> checkForUpdates;
         ConfigVar<int> cardFileType;
         ConfigVar<bool> enableAdvancedSettings;
     } backend;
+
+    // Arrays of size 4 for 4 ports
+    struct {
+        std::array<ActionBindConfigVar, 4> firstPersonCamera;
+        std::array<ActionBindConfigVar, 4> callMidna;
+        std::array<ActionBindConfigVar, 4> openDusklightMenu;
+        std::array<ActionBindConfigVar, 4> turboSpeedButton;
+    } actionBindings;
 };
 
 UserSettings& getSettings();

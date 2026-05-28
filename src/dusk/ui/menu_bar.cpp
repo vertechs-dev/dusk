@@ -7,6 +7,8 @@
 
 #include "achievements.hpp"
 #include "aurora/rmlui.hpp"
+#include "dusk/speedrun.h"
+#include "dusk/livesplit.h"
 #include "dusk/main.h"
 #include "dusk/settings.h"
 #include "editor.hpp"
@@ -17,6 +19,7 @@
 #include "mods_window.hpp"
 #include "settings.hpp"
 #include "ui.hpp"
+#include "warp.hpp"
 #include "window.hpp"
 
 #include <chrono>
@@ -50,11 +53,9 @@ MenuBar::MenuBar() : Document(kDocumentSource), mRoot(mDocument->GetElementById(
                                                   .autoSelect = false,
                                               });
     mTabBar->add_tab("Settings", [this] { push(std::make_unique<SettingsWindow>()); });
-    // mTabBar->add_tab("Warp", [] {
-    //     // TODO
-    // });
 
     if (getSettings().backend.enableAdvancedSettings) {
+        mTabBar->add_tab("Warp", [this] { push(std::make_unique<WarpWindow>()); });
         mTabBar->add_tab("Editor", [this] { push(std::make_unique<EditorWindow>()); });
     }
 
@@ -100,7 +101,7 @@ MenuBar::MenuBar() : Document(kDocumentSource), mRoot(mDocument->GetElementById(
         mTabBar->set_active_tab(-1);
         const auto dismiss = [](Modal& modal) { modal.pop(); };
         push(std::make_unique<Modal>(Modal::Props{
-            .title = "Quit Dusk",
+            .title = "Quit Dusklight",
             .bodyRml = "Unsaved progress will be lost.",
             .actions =
                 {
@@ -126,6 +127,18 @@ MenuBar::MenuBar() : Document(kDocumentSource), mRoot(mDocument->GetElementById(
             .icon = "question-mark",
         }));
     });
+
+    if (getSettings().game.speedrunMode) {
+        mTabBar->add_tab("Reset Timer", [this] {
+            mTabBar->set_active_tab(-1);
+            mDoAud_seStartMenu(kSoundClick);
+            m_speedrunInfo.reset();
+            if (getSettings().game.liveSplitEnabled) {
+                dusk::speedrun::reset();
+            }
+            hide(false);
+        });
+    }
 
     // Hide document after transition completion
     listen(mRoot, Rml::EventId::Transitionend, [this](Rml::Event& event) {

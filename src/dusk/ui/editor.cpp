@@ -26,6 +26,43 @@
 #include <vector>
 
 namespace dusk::ui {
+
+Rml::String stage_option_label(const MapEntry& map, bool showInternalNames) {
+    return showInternalNames ? fmt::format("{} ({})", map.mapName, map.mapFile) : map.mapName;
+}
+
+Rml::String stage_label_for_file(const Rml::String& stageFile, bool showInternalNames) {
+    for (const auto& region : gameRegions) {
+        for (const auto& map : region.maps) {
+            if (stageFile == map.mapFile) {
+                return stage_option_label(map, showInternalNames);
+            }
+        }
+    }
+    return stageFile;
+}
+
+void populate_stage_picker(Pane& pane, std::function<Rml::String()> getStageFile,
+    std::function<void(const char*)> setStageFile, bool showInternalNames) {
+    pane.clear();
+    for (const auto& region : gameRegions) {
+        pane.add_section(region.regionName);
+        for (const auto& map : region.maps) {
+            pane.add_button({
+                                .text = stage_option_label(map, showInternalNames),
+                                .isSelected =
+                                    [getStageFile, stageFile = map.mapFile] {
+                                        return getStageFile() == stageFile;
+                                    },
+                            })
+                .on_pressed([setStageFile, stageFile = map.mapFile] {
+                    mDoAud_seStartMenu(kSoundItemChange);
+                    setStageFile(stageFile);
+                });
+        }
+    }
+}
+
 namespace {
 
 bool has_save_data() {
@@ -155,49 +192,11 @@ bool parse_vec3(const Rml::String& value, float& x, float& y, float& z) {
     return *cursor == '\0';
 }
 
-Rml::String stage_option_label(const MapEntry& map) {
-    // TODO: option to show internal name?
-    // return fmt::format("{} ({})", map.mapName, map.mapFile);
-    return map.mapName;
-}
-
-Rml::String stage_label_for_file(const Rml::String& stageFile) {
-    for (const auto& region : gameRegions) {
-        for (const auto& map : region.maps) {
-            if (stageFile == map.mapFile) {
-                return stage_option_label(map);
-            }
-        }
-    }
-    return stageFile;
-}
-
-void populate_stage_picker(Pane& pane, std::function<Rml::String()> getStageFile,
-    std::function<void(const char*)> setStageFile) {
-    pane.clear();
-    for (const auto& region : gameRegions) {
-        pane.add_section(region.regionName);
-        for (const auto& map : region.maps) {
-            pane.add_button({
-                                .text = stage_option_label(map),
-                                .isSelected =
-                                    [getStageFile, stageFile = map.mapFile] {
-                                        return getStageFile() == stageFile;
-                                    },
-                            })
-                .on_pressed([setStageFile, stageFile = map.mapFile] {
-                    mDoAud_seStartMenu(kSoundItemChange);
-                    setStageFile(stageFile);
-                });
-        }
-    }
-}
-
 Rml::String get_player_name() {
     if (!has_save_data()) {
         return "";
     }
-    return dComIfGs_getPlayerName();
+    return dComIfGs_getPlayerName().buffer;
 }
 
 void set_player_name(Rml::String name) {
@@ -208,7 +207,7 @@ Rml::String get_horse_name() {
     if (!has_save_data()) {
         return "";
     }
-    return dComIfGs_getHorseName();
+    return dComIfGs_getHorseName().buffer;
 }
 
 void set_horse_name(Rml::String name) {
@@ -1502,14 +1501,14 @@ EditorWindow::EditorWindow() {
                 .getValue =
                     [] {
                         return std::popcount(static_cast<unsigned>(
-                            get_player_status_b()->mTransformLevelFlag & 0x7));
+                            get_player_status_b()->mTransformLevelFlag & 0xF));
                     },
                 .setValue =
                     [](int value) {
                         get_player_status_b()->mTransformLevelFlag =
                             static_cast<u8>((1u << value) - 1u);
                     },
-                .max = 3,
+                .max = 4,
             }),
             rightPane, {});
         leftPane.register_control(

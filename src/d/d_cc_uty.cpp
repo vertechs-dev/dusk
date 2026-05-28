@@ -15,6 +15,8 @@
 #include "f_op/f_op_actor_mng.h"
 #if TARGET_PC
 #include "dusk/achievements.h"
+#include "dusk/settings.h"
+#include "d/actor/d_a_alink.h"
 #endif
 
 static int plCutLRC[58] = {
@@ -429,6 +431,13 @@ fopAc_ac_c* cc_at_check(fopAc_ac_c* i_enemy, dCcU_AtInfo* i_AtInfo) {
             }
         }
 
+#if TARGET_PC
+        if (dusk::getSettings().game.invincibleEnemies &&
+            fopAcM_GetGroup(i_enemy) == fopAc_ENEMY_e) {
+            i_AtInfo->mAttackPower = 0;
+        }
+#endif
+
         if (i_AtInfo->mAttackPower != 0) {
             i_enemy->health -= i_AtInfo->mAttackPower;
         }
@@ -440,6 +449,10 @@ fopAc_ac_c* cc_at_check(fopAc_ac_c* i_enemy, dCcU_AtInfo* i_AtInfo) {
 #if TARGET_PC
             if (fopAcM_GetGroup(i_enemy) == fopAc_ENEMY_e) {
                 dusk::AchievementSystem::get().signal("enemy_killed");
+                const auto* link = static_cast<const daAlink_c*>(daPy_getPlayerActorClass());
+                if (link != nullptr && link->mProcID == daAlink_c::PROC_CUT_FINISH && link->mIsRollstab) {
+                    dusk::AchievementSystem::get().signal("rollstab_kill");
+                }
             }
 #endif
         }
