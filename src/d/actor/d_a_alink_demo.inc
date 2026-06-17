@@ -25,6 +25,7 @@
 
 #include "dusk/imgui/ImGuiConsole.hpp"
 #include "dusk/settings.h"
+#include "dusk/speedrun.h"
 
 BOOL daAlink_c::checkEventRun() const {
     return dComIfGp_event_runCheck() || checkPlayerDemoMode();
@@ -4358,7 +4359,7 @@ void daAlink_c::dungeonReturnWarp() {
     s16 angle = dComIfGs_getWarpPlayerAngleY();
     s8 room = dComIfGs_getWarpRoomNo();
     char name[8];
-    strcpy(name, dComIfGs_getWarpStageName());
+    SAFE_STRCPY(name, dComIfGs_getWarpStageName());
 
     dComIfGs_setRestartRoom(pos, angle, room);
     dComIfGp_setNextStage(name, -1, dComIfGs_getRestartRoomNo(), -1, 0.0f, 12, 0,
@@ -4534,7 +4535,7 @@ int daAlink_c::procCoWarpInit(int param_0, int param_1) {
 
                 if (checkBossRoom() && fopAcM_GetRoomNo(this) == 50) {
                     char stageName[32];
-                    strcpy(stageName, dComIfGp_getStartStageName());
+                    SAFE_STRCPY(stageName, dComIfGp_getStartStageName());
 
                     for (int i = 0; i < 32; i++) {
                         if ((s64)stageName[i] == 0) {

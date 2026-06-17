@@ -11,12 +11,15 @@
 #include <types.h>
 
 u32 mDoLib_setResTimgObj(ResTIMG const* i_img, TGXTexObj* o_texObj, u32 tlut_name,
-                        GXTlutObj* o_tlutObj) {
+                         TGXTlutObj* o_tlutObj) {
 #ifdef TARGET_PC
     o_texObj->reset();
 #endif
     if (i_img->indexTexture) {
         JUT_ASSERT(44, o_tlutObj != NULL);
+#ifdef TARGET_PC
+        o_tlutObj->reset();
+#endif
         GXInitTlutObj(o_tlutObj, (void*)((u8*)i_img + i_img->paletteOffset),
                       (GXTlutFmt)i_img->colorFormat, (u16)i_img->numColors);
         GXInitTexObjCI(o_texObj, (void*)((u8*)i_img + i_img->imageOffset), i_img->width, i_img->height,
@@ -96,8 +99,8 @@ void mDoLib_project(Vec* src, Vec* dst) {
         xSize = FB_WIDTH;
     } else {
 #if TARGET_PC
-        xOffset = mDoGph_gInf_c::getSafeMinXF();
-        xSize = viewPort->width * mDoGph_gInf_c::hudAspectScaleUp;
+        xOffset = mDoGph_gInf_c::getMinXF();
+        xSize = mDoGph_gInf_c::getWidthF();
 #else
         xOffset = viewPort->x_orig;
         xSize = viewPort->width;

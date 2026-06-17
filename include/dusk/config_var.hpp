@@ -48,6 +48,13 @@ enum class ConfigVarLayer : u8 {
      * Will not get saved to config.
      */
     Override,
+
+    /**
+     * The CVar is temporarily overridden by speedrun mode.
+     * Will not get saved to config. Cleared when speedrun mode is disabled.
+     * Lower priority than Override, so launch args still win.
+     */
+    Speedrun,
 };
 
 class ConfigImplBase;
@@ -61,7 +68,7 @@ protected:
     /**
      * The name of this CVar, used in the configuration file.
      */
-    const char* name;
+    std::string name;
 
     /**
      * Whether this CVar has been registered with the global managing logic.
@@ -79,8 +86,10 @@ protected:
      */
     const ConfigImplBase* impl;
 
-    ConfigVarBase(const char* name, const ConfigImplBase* impl);
-    virtual ~ConfigVarBase() = default;
+    // The configuration system stores a direct pointer to the ConfigVar instance.
+    // It is not legal to move or copy it.
+    ConfigVarBase(const ConfigVarBase&) = delete;
+    ConfigVarBase(std::string name, const ConfigImplBase* impl);
 
     /**
      * Check that the CVar is registered, aborting if this is not the case.
@@ -91,6 +100,8 @@ protected:
     }
 
 public:
+    virtual ~ConfigVarBase();
+
     /**
      * Get the name of this CVar, used in the configuration file.
      */
@@ -113,6 +124,13 @@ public:
      * This is necessary to make it legal to access.
      */
     void markRegistered();
+    void unmarkRegistered();
+
+    /**
+     * Clear a speedrun-mode override if one is active on this CVar.
+     * Safe to call on any CVar, no-op if not at the Speedrun layer.
+     */
+    virtual void clearSpeedrunOverride() {}
 };
 
 template <typename T>
@@ -162,6 +180,7 @@ class ConfigVar : public ConfigVarBase {
     T defaultValue;
     T value;
     T overrideValue;
+    ConfigVarLayer priorLayer = ConfigVarLayer::Default;
 
 public:
     /**
@@ -171,9 +190,11 @@ public:
      * @param arg Arguments to forward to construct the default value.
      */
     template <typename... Args>
-    ConfigVar(const char* name, Args&&... arg)
-        : ConfigVarBase(name, GetConfigImpl<T>()), defaultValue(std::forward<Args>(arg)...),
+    ConfigVar(std::string name, Args&&... arg)
+        : ConfigVarBase(std::move(name), GetConfigImpl<T>()), defaultValue(std::forward<Args>(arg)...),
         value(), overrideValue() {}
+
+    ConfigVar(ConfigVar const&) = delete;
 
     /**
      * \brief Get the current value of the CVar.
@@ -189,6 +210,7 @@ public:
         case ConfigVarLayer::Value:
             return value;
         case ConfigVarLayer::Override:
+        case ConfigVarLayer::Speedrun:
             return overrideValue;
         default:
             abort();
@@ -239,7 +261,53 @@ public:
         overrideValue = std::move(newValue);
         layer = ConfigVarLayer::Override;
     }
+
+    /**
+     * \brief Give a CVar a speedrun-mode override value.
+     *
+     * Lower priority than a launch-arg override. Cleared when speedrun mode is disabled.
+     * The overridden value will not get saved to config.
+     *
+     * @param newValue The new value the CVar will get.
+     */
+    void setSpeedrunValue(T newValue) {
+        checkRegistered();
+        if (layer != ConfigVarLayer::Override) {
+            priorLayer = layer;
+            overrideValue = std::move(newValue);
+            layer = ConfigVarLayer::Speedrun;
+        }
+    }
+
+    void clearOverride() {
+        checkRegistered();
+        if (layer == ConfigVarLayer::Override) {
+            overrideValue = {};
+            layer = ConfigVarLayer::Value;
+        }
+    }
+
+    void clearSpeedrunOverride() override {
+        checkRegistered();
+        if (layer == ConfigVarLayer::Speedrun) {
+            overrideValue = {};
+            layer = priorLayer;
+        }
+    }
+
+    /**
+     * \brief Get the user-persisted value, ignoring any temporary overrides.
+     *
+     * Used by Save() to write the correct value even when a speedrun override is active.
+     */
+    [[nodiscard]] constexpr const T& getValueForSave() const noexcept {
+        checkRegistered();
+        const ConfigVarLayer effectiveLayer = (layer == ConfigVarLayer::Speedrun) ? priorLayer : layer;
+        return effectiveLayer == ConfigVarLayer::Default ? defaultValue : value;
+    }
 };
+
+using ActionBindConfigVar = ConfigVar<int>;
 
 }
 

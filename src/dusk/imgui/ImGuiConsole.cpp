@@ -12,9 +12,10 @@
 #include "ImGuiConsole.hpp"
 #include "ImGuiEngine.hpp"
 #include "JSystem/JUtility/JUTGamePad.h"
-#include "SDL3/SDL_mouse.h"
+#include "dusk/action_bindings.h"
 #include "dusk/audio/DuskAudioSystem.h"
 #include "dusk/config.hpp"
+#include "dusk/data.hpp"
 #include "dusk/dusk.h"
 #include "dusk/frame_interpolation.h"
 #include "dusk/livesplit.h"
@@ -57,10 +58,6 @@ namespace dusk {
     void ImGuiStringViewText(std::string_view text) {
         // begin()/end() do not work on MSVC
         ImGui::TextUnformatted(text.data(), text.data() + text.size());
-    }
-
-    void DuskToast(std::string_view message, float duration) {
-        g_imguiConsole.AddToast(message, duration);
     }
 
     void ImGuiTextCenter(std::string_view text) {
@@ -239,7 +236,7 @@ namespace dusk {
 
     void ImGuiConsole::UpdateSettings() {
         getTransientSettings().skipFrameRateLimit = getSettings().game.enableTurboKeybind &&
-            SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_TAB];
+            (ImGui::IsKeyDown(ImGuiKey_Tab) || getActionBindHoldAnyPort(ActionBinds::TURBO_SPEED_BUTTON));
 
         if (dusk::frame_interp::get_ui_tick_pending() && mDoMain::developmentMode == 1 && (mDoCPd_c::getHold(PAD_1) & (PAD_TRIGGER_R | PAD_TRIGGER_L)) == (PAD_TRIGGER_R | PAD_TRIGGER_L) && mDoCPd_c::getTrigY(PAD_1)) {
             getTransientSettings().moveLinkActive = !getTransientSettings().moveLinkActive;
@@ -260,6 +257,12 @@ namespace dusk {
             config::Save();
         }
 
+        if (getSettings().game.enableResetKeybind && ImGui::GetIO().KeyCtrl &&
+            ImGui::IsKeyReleased(ImGuiKey_R) && !fpcM_SearchByName(fpcNm_LOGO_SCENE_e))
+        {
+            JUTGamePad::C3ButtonReset::sResetSwitchPushing = true;
+        }
+
         if (ImGui::GetIO().KeyShift && ImGui::IsKeyPressed(ImGuiKey_F1)) {
             if (getSettings().backend.enableAdvancedSettings) {
                 m_isHidden = !m_isHidden;
@@ -274,7 +277,6 @@ namespace dusk {
         // so make the window bg fully transparent temporarily
         ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
         if (showMenu && ImGui::BeginMainMenuBar()) {
-            m_menuGame.draw();
             m_menuTools.draw();
 
             ImGui::EndMainMenuBar();
@@ -283,7 +285,7 @@ namespace dusk {
 
         if (dusk::IsGameLaunched && !m_isLaunchInitialized) {
             m_isLaunchInitialized = true;
-            if (getSettings().game.liveSplitEnabled) {
+            if (getSettings().game.speedrunMode && getSettings().game.liveSplitEnabled) {
                 dusk::speedrun::connectLiveSplit();
             }
         }
@@ -310,13 +312,13 @@ namespace dusk {
                 ImGui::Image(ImGuiEngine::duskLogo, ImVec2{width, iconSize});
             } else {
                 ImGui::PushFont(ImGuiEngine::fontExtraLarge);
-                ImGuiTextCenter("Dusk");
+                ImGuiTextCenter("Dusklight");
                 ImGui::PopFont();
             }
             ImGui::PushFont(ImGuiEngine::fontLarge);
             ImGuiTextCenter("Failed to initialize any graphics backend.");
-            ImGuiTextCenter("\nYour system may be misconfigured, or your hardware may not support the required versions of any of the available backends.");
-            ImGuiTextCenter("\nA clean reinstall of Dusk may help. For further assistance, please visit #tech-support on the Twilit Realm Discord server.");
+            ImGuiTextCenter("\nDusklight requires at least Vulkan 1.1 or Direct3D 12.");
+            ImGuiTextCenter("\nTry updating your operating system and GPU drivers.");
             const auto& style = ImGui::GetStyle();
             const auto retrySize = ImGui::CalcTextSize("Retry (Auto backend)");
             const auto quitSize = ImGui::CalcTextSize("Quit");
@@ -342,7 +344,7 @@ namespace dusk {
             }
 #if DUSK_CAN_OPEN_DATA_FOLDER
             if (ImGui::Button("Open Data Folder")) {
-                OpenDataFolder();
+                data::open_data_path();
             }
             ImGui::SameLine();
 #endif
@@ -354,15 +356,6 @@ namespace dusk {
         }
 
         m_menuTools.ShowInputViewer();
-        m_menuGame.drawSpeedrunTimerOverlay();
-
-        if (getSettings().game.liveSplitEnabled) {
-            dusk::speedrun::updateLiveSplit();
-            if (dusk::speedrun::consumeConnectedEvent())
-                AddToast("LiveSplit connected");
-            else if (dusk::speedrun::consumeDisconnectedEvent())
-                AddToast("LiveSplit disconnected");
-        }
 
         if (dusk::IsGameLaunched && !dusk::getSettings().game.speedrunMode) {
             m_menuTools.ShowDebugOverlay();
@@ -370,7 +363,6 @@ namespace dusk {
             m_menuTools.ShowProcessManager();
             m_menuTools.ShowHeapOverlay();
             m_menuTools.ShowStubLog();
-            m_menuTools.ShowMapLoader();
             m_menuTools.ShowBloomWindow();
             m_menuTools.ShowPlayerInfo();
             m_menuTools.ShowAudioDebug();
@@ -379,22 +371,6 @@ namespace dusk {
             m_menuTools.ShowActorSpawner();
         }
 
-        // Hide mouse cursor if the F1 menu is not open and the cursor is idle for 3 seconds.
-        if (dusk::getSettings().game.gyroMode.getValue() != GyroMode::Mouse)
-        {
-            ImGuiIO& io = ImGui::GetIO();
-            if (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f) {
-                mouseHideTimer = 0.0f;
-                ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;  // Imgui will re-show cursor.
-            } else if (mouseHideTimer <= 3.0f) {
-                mouseHideTimer += ImGui::GetIO().DeltaTime;
-            } else {
-                ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-                SDL_HideCursor();
-            }
-        }
-
-        ShowToasts();
     }
 
     void ImGuiConsole::PostDraw() {
@@ -546,50 +522,6 @@ namespace dusk {
         }
 
         return false;
-    }
-
-    void ImGuiConsole::AddToast(std::string_view message, float duration) {
-        m_toasts.emplace_back(std::string(message), duration);
-    }
-
-    void ImGuiConsole::ShowToasts() {
-        if (m_toasts.empty()) {
-            return;
-        }
-        auto& toast = m_toasts.front();
-        const float dt = ImGui::GetIO().DeltaTime;
-        toast.remain -= dt;
-        toast.current += dt;
-
-        const ImGuiViewport* viewport = ImGui::GetMainViewport();
-        const ImVec2 workPos = viewport->WorkPos;
-        const ImVec2 workSize = viewport->WorkSize;
-        constexpr float padding = 10.0f;
-        const ImVec2 windowPos{workPos.x + workSize.x / 2, workPos.y + workSize.y - padding};
-        ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2{0.5f, 1.f});
-
-        const float alpha = std::min({toast.remain, toast.current, 1.f});
-        ImGui::SetNextWindowBgAlpha(alpha * 0.65f);
-        ImVec4 textColor = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-        textColor.w *= alpha;
-        ImVec4 borderColor = ImGui::GetStyleColorVec4(ImGuiCol_Border);
-        borderColor.w *= alpha;
-        ImGui::PushStyleColor(ImGuiCol_Text, textColor);
-        ImGui::PushStyleColor(ImGuiCol_Border, borderColor);
-        if (ImGui::Begin("Toast", nullptr,
-                         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-                             ImGuiWindowFlags_NoSavedSettings |
-                             ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
-                             ImGuiWindowFlags_NoMove))
-        {
-            ImGuiStringViewText(toast.message);
-        }
-        ImGui::End();
-        ImGui::PopStyleColor(2);
-
-        if (toast.remain <= 0.f) {
-            m_toasts.pop_front();
-        }
     }
 
     void ImGuiConsole::ShowPipelineProgress() {

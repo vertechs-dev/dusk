@@ -1,6 +1,7 @@
 #include "prelaunch.hpp"
 
 #include "dusk/config.hpp"
+#include "dusk/data.hpp"
 #include "dusk/file_select.hpp"
 #include "dusk/iso_validate.hpp"
 #include "dusk/main.h"
@@ -27,6 +28,7 @@
 #include <thread>
 
 #include "m_Do/m_Do_MemCard.h"
+#include "mods_window.hpp"
 
 namespace dusk::ui {
 namespace {
@@ -43,19 +45,19 @@ const Rml::String kDocumentSource = R"RML(
     <content id="root" open>
         <menu>
             <hero class="intro-item delay-0">
-                <div class="eyebrow"><span>Twilit Realm</span> presents</div>
-                <img src="res/logo-mascot.png" />
+                <eyebrow><span>Twilit Realm</span> presents</eyebrow>
+                <img src="res/logo.png" />
             </hero>
             <div id="menu-list" />
         </menu>
-        <disc-info class="intro-item delay-4">
+        <disc-info class="intro-item delay-5">
             <div id="disc-status">
                 <icon />
                 <span id="disc-status-label" />
             </div>
             <span id="disc-version" class="detail" />
         </disc-info>
-        <version-info class="intro-item delay-5">
+        <version-info class="intro-item delay-6">
             <div class="version">Version <span id="version-text"></span></div>
             <div id="update-status" class="update">
                 <span id="update-message"></span>
@@ -127,7 +129,7 @@ struct UpdateCheckTask {
     UpdateCheckTask() {
         worker = std::thread([this] {
             try {
-                result = update_check::check_latest_github_release("TwilitRealm", "dusk");
+                result = update_check::check_latest_github_release("TwilitRealm", "dusklight");
             } catch (const std::exception& e) {
                 result = {
                     .status = update_check::Status::Failed,
@@ -287,12 +289,12 @@ std::string get_error_msg(iso::ValidationError error) {
     case iso::ValidationError::InvalidImage:
         return "The selected file is not a valid disc image.";
     case iso::ValidationError::WrongGame:
-        return "The selected game is not supported by Dusk.";
+        return "The selected game is not supported by Dusklight.";
     case iso::ValidationError::WrongVersion:
-        return "Dusk currently supports GameCube USA and PAL disc images only.";
+        return "Dusklight currently supports GameCube USA and PAL disc images only.";
     case iso::ValidationError::Canceled:
-        return "Disc verification was canceled. Dusk cannot guarantee the selected disc image "
-               "is compatible.";
+        return "Disc verification was canceled. Dusklight cannot guarantee the selected disc "
+               "image is compatible.";
     case iso::ValidationError::HashMismatch:
         return "The selected disc image did not pass hash verification. It may be corrupt or "
                "modified.";
@@ -656,6 +658,9 @@ bool is_restart_pending() noexcept {
     if (!state.activeDiscPath.empty() && state.configuredDiscPath != state.activeDiscPath) {
         return true;
     }
+    if (data::is_data_path_restart_pending()) {
+        return true;
+    }
     if (getSettings().backend.graphicsBackend.getValue() != state.initialGraphicsBackend) {
         return true;
     }
@@ -695,8 +700,6 @@ Prelaunch::Prelaunch() : Document(kDocumentSource), mRoot(mDocument->GetElementB
                 return;
             }
 
-            toggle_cursor_if_gyro(false);
-
             mDoAud_seStartMenu(kSoundPlay);
             show_menu_notification();
 
@@ -724,9 +727,16 @@ Prelaunch::Prelaunch() : Document(kDocumentSource), mRoot(mDocument->GetElementB
         });
         apply_intro_animation(mMenuButtons.back()->root(), "delay-2");
 
+        mMenuButtons.push_back(std::make_unique<Button>(menuList, "Mods"));
+        mMenuButtons.back()->on_pressed([this] {
+            mRestartSuppressed = false;
+            push(std::make_unique<ModsWindow>());
+        });
+        apply_intro_animation(mMenuButtons.back()->root(), "delay-3");
+
         mMenuButtons.push_back(std::make_unique<Button>(menuList, "Quit"));
         mMenuButtons.back()->on_pressed([] { IsRunning = false; });
-        apply_intro_animation(mMenuButtons.back()->root(), "delay-3");
+        apply_intro_animation(mMenuButtons.back()->root(), "delay-4");
     }
 
     mDiscStatus = mDocument->GetElementById("disc-status");
@@ -798,7 +808,7 @@ void Prelaunch::show() {
                     "A restart is required to apply selected options.<br/><br/>Restart now to "
                     "apply them immediately?" :
                     "A restart is required to apply selected options.<br/><br/>Close and reopen "
-                    "Dusk to apply them.",
+                    "Dusklight to apply them.",
             .actions = std::move(actions),
             .onDismiss = dismiss,
         }));

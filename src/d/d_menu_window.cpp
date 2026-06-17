@@ -26,6 +26,10 @@
 #include "f_op/f_op_overlap_mng.h"
 #include "m_Do/m_Do_controller_pad.h"
 
+#ifdef TARGET_PC
+#include "dusk/frame_interpolation.h"
+#endif
+
 class dDlst_MENU_CAPTURE_c : public dDlst_base_c {
 public:
     virtual void draw() {
@@ -1088,6 +1092,10 @@ void dMw_c::dMw_ring_create(u8 i_origin) {
     }
 
     mpCapture->setCaptureFlag();
+
+#ifdef TARGET_PC
+    dusk::frame_interp::request_presentation_sync();
+#endif
 }
 
 bool dMw_c::dMw_ring_delete() {
@@ -1763,7 +1771,7 @@ static leafdraw_method_class l_dMw_Method = {
     (process_method_func)dMw_Draw,
 };
 
-msg_process_profile_definition g_profile_MENUWINDOW = {
+DUSK_PROFILE msg_process_profile_definition DUSK_CONST g_profile_MENUWINDOW = {
     /* Layer ID    */ fpcLy_CURRENT_e,
     /* List ID     */ 12,
     /* List Prio   */ fpcPi_CURRENT_e,

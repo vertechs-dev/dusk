@@ -77,16 +77,16 @@ static const char* l_mojiEisu[65] = {
 // That can't work on a modern platform, so instead I've filled them out ahead of time.
 static const char* l_mojiEisuPal_1[65] = {
     "A", "N", "\xC0", "\xCF", "1", "B", "O", "\xC1", "\xD0", "2", "C", "P", "\xC2", "\xD1", "3", "D", "Q",
-    "\xC3", "\xD2", "4", "E", "R", "\xC4", "\xD3", "5", "F", "S", "\xC5", "\xD4", "6", "G", "T", "\xC6", "\xD5",
-    "7", "H", "U", "\xC7", "\xD6", "8", "I", "V", "\xC8", "\xD7", "9", "J", "W", "\xC9", "\xD8", "0", "K",
-    "X", "\xCA", "\xD9", ",", "L", "Y", "\xCB", "\xDA", ".", "M", "Z", "\xCC", "\xDB", " ",
+    "\xC4", "\xD2", "4", "E", "R", "\xC6", "\xD3", "5", "F", "S", "\xC7", "\xD4", "6", "G", "T", "\xC8", "\xD6",
+    "7", "H", "U", "\xC9", "\x8C", "8", "I", "V", "\xCA", "\xD9", "9", "J", "W", "\xCB", "\xDA", "0", "K",
+    "X", "\xCC", "\xDB", ",", "L", "Y", "\xCD", "\xDC", ".", "M", "Z", "\xCE", "\x2D", " ",
 };
 
 static const char* l_mojiEisuPal_2[65] = {
     "a", "n", "\xE0", "\xEF", "1", "b", "o", "\xE1", "\xF0", "2", "c", "p", "\xE2", "\xF1", "3", "d", "q",
-    "\xE3", "\xF2", "4", "e", "r", "\xE4", "\xF3", "5", "f", "s", "\xE5", "\xF4", "6", "g", "t", "\xE6",
-    "\xF5", "7", "h", "u", "\xE7", "\xF6", "8", "i", "v", "\xE8", "\xF7", "9", "j", "w", "\xE9", "\xF8", "0",
-    "k", "x", "\xEA", "\xF9", ",", "l", "y", "\xEB", "\xFA", ".", "m", "z", "\xEC", "\xFB", " ",
+    "\xE4", "\xF2", "4", "e", "r", "\xE6", "\xF3", "5", "f", "s", "\xE7", "\xF4", "6", "g", "t", "\xE8",
+    "\xF6", "7", "h", "u", "\xE9", "\x9C", "8", "i", "v", "\xEA", "\xF9", "9", "j", "w", "\xEB", "\xFA", "0",
+    "k", "x", "\xEC", "\xFB", ",", "l", "y", "\xED", "\xFC", ".", "m", "z", "\xEE", "\xDF", " ",
 };
 #elif REGION_PAL
 static const char* l_mojiEisuPal_1[65] = {
@@ -295,6 +295,7 @@ void dName_c::_move() {
         }
     } else {
     #endif
+#if !TARGET_PC
     if (mDoCPd_c::getTrigRight(PAD_1)) {
         // BUG: this check only fails if the cursor is at exactly 7
         // setMoji allows the cursor to reach 8, which is out of bounds here
@@ -311,7 +312,9 @@ void dName_c::_move() {
             mCurPos--;
             nameCursorMove();
         }
-    } else if (mDoCPd_c::getTrigB(PAD_1)) {
+    } else
+#endif
+    if (mDoCPd_c::getTrigB(PAD_1)) {
         if (mCurPos == 0) {
             mDoAud_seStart(Z2SE_SY_MENU_BACK, 0, 0, 0);
             field_0x2ac = mSelProc;
@@ -905,7 +908,7 @@ void dName_c::setNameText() {
             #if REGION_JPN
             if (mChrInfo[i].mMojiSet == 2) {
             #endif
-                sprintf(mNameText[i],
+                SAFE_SPRINTF(mNameText[i],
                         "\x1b"
                         "CD\x1b"
                         "CR\x1b"
@@ -916,7 +919,7 @@ void dName_c::setNameText() {
                 );
             #if REGION_JPN
             } else {
-                sprintf(mNameText[i],
+                SAFE_SPRINTF(mNameText[i],
                         "\x1b"
                         "CD\x1b"
                         "CR\x1b"
@@ -1327,7 +1330,7 @@ void dName_c::mojiListChange() {
 
     char buf[74];
     for (int i = 0; i < 65; i++) {
-        strcpy(buf, "\x1B"
+        SAFE_STRCPY(buf, "\x1B"
                     "CD"
                     "\x1B"
                     "CR"
@@ -1335,15 +1338,15 @@ void dName_c::mojiListChange() {
                     "CC[000000]"
                     "\x1B"
                     "GM[0]");
-        strcat(buf, mojiSet[i]);
-        strcat(buf, "\x1B"
+        SAFE_STRCAT(buf, mojiSet[i]);
+        SAFE_STRCAT(buf, "\x1B"
                     "HM"
                     "\x1B"
                     "CC[ffffff]"
                     "\x1B"
                     "GM[0]");
-        strcat(buf, mojiSet[i]);
-        strcpy(mMojiText[i], buf);
+        SAFE_STRCAT(buf, mojiSet[i]);
+        SAFE_STRCPY(mMojiText[i], buf);
     }
 
     #if TARGET_PC || REGION_PAL || REGION_JPN
@@ -1427,51 +1430,86 @@ void dName_c::selectCursorPosSet(int row) {
 
 #if TARGET_PC
 void dName_c::nameWide() {
-    //Resize Select Icon
-    #if TARGET_PC
-    if (mSelIcon) {
-        mSelIcon->refreshAspectScale();
-    }
-    #endif
-
-    // List of Characters Box
-    static u64 l_tagName[65] = {
-        MULTI_CHAR('m_00_0'), MULTI_CHAR('m_00_1'), MULTI_CHAR('m_00_2'), MULTI_CHAR('m_00_3'), MULTI_CHAR('m_00_4'), MULTI_CHAR('m_01_0'), MULTI_CHAR('m_01_1'), MULTI_CHAR('m_01_2'), MULTI_CHAR('m_01_3'),
-        MULTI_CHAR('m_01_4'), MULTI_CHAR('m_02_0'), MULTI_CHAR('m_02_1'), MULTI_CHAR('m_02_2'), MULTI_CHAR('m_02_3'), MULTI_CHAR('m_02_4'), MULTI_CHAR('m03_0'),  MULTI_CHAR('m03_1'),  MULTI_CHAR('m03_2'),
-        MULTI_CHAR('m03_3'),  MULTI_CHAR('m03_4'),  MULTI_CHAR('m_04_0'), MULTI_CHAR('m_04_1'), MULTI_CHAR('m_04_2'), MULTI_CHAR('m_04_3'), MULTI_CHAR('m_04_4'), MULTI_CHAR('m_05_0'), MULTI_CHAR('m_05_1'),
-        MULTI_CHAR('m_05_2'), MULTI_CHAR('m_05_3'), MULTI_CHAR('m_05_4'), MULTI_CHAR('m_06_0'), MULTI_CHAR('m_06_1'), MULTI_CHAR('m_06_2'), MULTI_CHAR('m_06_3'), MULTI_CHAR('m_06_4'), MULTI_CHAR('m_07_0'),
-        MULTI_CHAR('m_07_1'), MULTI_CHAR('m_07_2'), MULTI_CHAR('m_07_3'), MULTI_CHAR('m_07_4'), MULTI_CHAR('m_08_0'), MULTI_CHAR('m_08_1'), MULTI_CHAR('m_08_2'), MULTI_CHAR('m_08_3'), MULTI_CHAR('m_08_4'),
-        MULTI_CHAR('m_09_0'), MULTI_CHAR('m_09_1'), MULTI_CHAR('m_09_2'), MULTI_CHAR('m_09_3'), MULTI_CHAR('m_09_4'), MULTI_CHAR('m_10_0'), MULTI_CHAR('m_10_1'), MULTI_CHAR('m_10_2'), MULTI_CHAR('m_10_3'),
-        MULTI_CHAR('m_10_4'), MULTI_CHAR('m_11_0'), MULTI_CHAR('m_11_1'), MULTI_CHAR('m_11_2'), MULTI_CHAR('m_11_3'), MULTI_CHAR('m_11_4'), MULTI_CHAR('m12_0'),  MULTI_CHAR('m12_1'),  MULTI_CHAR('m12_2'),
-        MULTI_CHAR('m12_3'),  MULTI_CHAR('m12_4'),
-    };
-
-    for (u32 i = 0; i < 65; i++) {
-        nameIn.NameInScr->search(l_tagName[i])->scale(mDoGph_gInf_c::hudAspectScaleDown, 1.0f);
-    }
-
-    // "END" Text
-    nameIn.NameInScr->search(MULTI_CHAR('p_end_2'))->scale(mDoGph_gInf_c::hudAspectScaleDown, 1.0f);
-    nameIn.NameInScr->search(MULTI_CHAR('p_end_1'))->scale(mDoGph_gInf_c::hudAspectScaleDown, 1.0f);
-    nameIn.NameInScr->search(MULTI_CHAR('p_end_0'))->scale(mDoGph_gInf_c::hudAspectScaleDown, 1.0f);
-
-    // Letters being typed
-    static u64 l_nameTagName[8] = {
-        MULTI_CHAR('name_00'), MULTI_CHAR('name_01'), MULTI_CHAR('name_02'), MULTI_CHAR('name_03'), MULTI_CHAR('name_04'), MULTI_CHAR('name_05'), MULTI_CHAR('name_06'), MULTI_CHAR('name_07'),
-    };
-
-    for (u32 i = 0; i < 8; i++) {
-        nameIn.NameInScr->search(l_nameTagName[i])->scale(mDoGph_gInf_c::hudAspectScaleDown, 1.0f);
+    static bool cachedPanes = false;
+    // Get pre-scale values for each pane
+    if (!cachedPanes) {
+        for (PaneCache& entry : l_tagName) {
+            J2DPane* pane = nameIn.NameInScr->search(entry.tag);
+            if (!entry.cached) {
+                entry.origTransX = pane->getTranslateX(); 
+                entry.origTransY = pane->getTranslateY();
+                entry.cached = true;
+            }
+        }
+        for (PaneCache& entry : l_nameTagName) {
+            J2DPane* pane = nameIn.NameInScr->search(entry.tag);
+            if (!entry.cached) {
+                entry.origTransX = pane->getTranslateX(); 
+                entry.origTransY = pane->getTranslateY();
+                entry.cached = true;
+            }
+        }
+        for (PaneCache& entry : l_nameCurTagName) {
+            J2DPane* pane = nameIn.NameInScr->search(entry.tag);
+            if (!entry.cached) {
+                entry.origTransX = pane->getTranslateX(); 
+                entry.origTransY = pane->getTranslateY();
+                entry.cached = true;
+            }
+        }
+        cachedPanes = true;
     }
 
-    // Underscores when typing below letters
-    static u64 l_nameCurTagName[8] = {
-        MULTI_CHAR('s__n_00'), MULTI_CHAR('s__n_01'), MULTI_CHAR('s__n_02'), MULTI_CHAR('s__n_03'), MULTI_CHAR('s__n_04'), MULTI_CHAR('s__n_05'), MULTI_CHAR('s__n_06'), MULTI_CHAR('s__n_07'),
-    };
+    // Reset all panes
+    nameIn.NameInScr->scale(1.0f, 1.0f);
+    nameIn.NameInScr->translate(0.0f, 0.0f);
+    for (PaneCache& entry : l_tagName) {
+        J2DPane* pane = nameIn.NameInScr->search(entry.tag);
+        pane->setBasePosition(J2DBasePosition_4);
+        pane->scale(1.0f, 1.0f);
+        pane->translate(entry.origTransX, entry.origTransY);
+    }
+    for (PaneCache& entry : l_nameTagName) {
+        J2DPane* pane = nameIn.NameInScr->search(entry.tag);
+        pane->setBasePosition(J2DBasePosition_4);
+        pane->scale(1.0f, 1.0f);
+        pane->translate(entry.origTransX, entry.origTransY);
+    }
+    for (PaneCache& entry : l_nameCurTagName) {
+        J2DPane* pane = nameIn.NameInScr->search(entry.tag);
+        pane->setBasePosition(J2DBasePosition_4);
+        pane->scale(1.0f, 1.0f);
+        pane->translate(entry.origTransX, entry.origTransY);
+    }
 
-    for (u32 i = 0; i < 8; i++) {
-        nameIn.NameInScr->search(l_nameCurTagName[i])
-            ->scale(mDoGph_gInf_c::hudAspectScaleDown, 1.0f);
+    switch (dusk::getSettings().game.menuScalingMode) {
+        case (dusk::MenuScaling::GameCube):
+            // Selection Cursor
+            if (mSelIcon) {
+                mSelIcon->refreshAspectScale(1.0f);
+            }
+            break;
+        default: // Wii and Dusklight
+            // List of Characters Box
+            for (PaneCache& entry : l_tagName) {
+                J2DPane* pane = nameIn.NameInScr->search(entry.tag);
+                pane->scale(mDoGph_gInf_c::hudAspectScaleDown, 1.0f);
+            }
+            // Letters being typed
+            for (PaneCache& entry : l_nameTagName) {
+                J2DPane* pane = nameIn.NameInScr->search(entry.tag);
+                pane->scale(mDoGph_gInf_c::hudAspectScaleDown, 1.0f);
+            }
+            // Underscores when typing below letters
+            for (PaneCache& entry : l_nameCurTagName) {
+                J2DPane* pane = nameIn.NameInScr->search(entry.tag);
+                pane->scale(mDoGph_gInf_c::hudAspectScaleDown, 1.0f);
+            }
+            // Selection Cursor
+            if (mSelIcon) {
+                mSelIcon->refreshAspectScale(mDoGph_gInf_c::hudAspectScaleUp);
+            }
+            break;
     }
 }
 #endif

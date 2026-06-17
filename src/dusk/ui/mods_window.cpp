@@ -38,8 +38,8 @@ Rml::String build_mod_detail_rml(const dusk::LoadedMod& mod) {
         R"(<span class="mod-info-label">Path</span>)"
         R"(<span class="mod-info-value mod-path">{}</span>)"
         R"(</div>)",
-        mod.version,
-        mod.author,
+        mod.metadata.version,
+        mod.metadata.author,
         statusClass, statusText,
         mod.mod_path
     );
@@ -59,10 +59,10 @@ ModsWindow::ModsWindow() {
         return;
     }
 
-    for (size_t i = 0; i < mods.size(); ++i) {
+    for (ModIndex i = 0; i < mods.size(); ++i) {
         mSnapshot.push_back({mods[i].active, mods[i].load_failed});
 
-        add_tab(mods[i].name, [this, i](Rml::Element* content) {
+        add_tab(mods[i].metadata.name, [this, i](Rml::Element* content) {
             mActiveModIndex = static_cast<int>(i);
 
             const auto& curMods = dusk::ModLoader::instance().mods();
@@ -76,9 +76,9 @@ ModsWindow::ModsWindow() {
             pane.add_section("Details");
             pane.add_rml(build_mod_detail_rml(mod));
 
-            if (!mod.description.empty()) {
+            if (!mod.metadata.description.empty()) {
                 pane.add_section("Description");
-                pane.add_text(mod.description);
+                pane.add_text(mod.metadata.description);
             }
 
             for (const auto& cb : mod.tab_content) {
@@ -95,7 +95,7 @@ void ModsWindow::update() {
 
     bool dirty = mods.size() != mSnapshot.size();
     if (!dirty) {
-        for (size_t i = 0; i < mods.size(); ++i) {
+        for (ModIndex i = 0; i < mods.size(); ++i) {
             if (mods[i].active != mSnapshot[i].active ||
                 mods[i].load_failed != mSnapshot[i].load_failed)
             {

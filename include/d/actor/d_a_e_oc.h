@@ -100,6 +100,14 @@ public:
     // attacks within ~167ms get silently dropped. Mods that scale attack
     // speed need to shorten this to keep tight combos landing every hit.
     s16& getDamageCooldownRef() { return field_0x6cc; }
+    // Accessor for the Morf animation controller so mods can adjust playback
+    // speed. mpMorf is private; exposing it here mirrors the getSphsAt pattern.
+    mDoExt_McaMorfSO* getMorf() { return mpMorf; }
+    // Reference accessor for the wait-dwell timer (field_0x6c0). executeWait()
+    // sets this to a random count-down each time the Bokoblin enters or extends
+    // its idle pause; mods can scale it to compress or stretch time between
+    // attacks.
+    s16& getWaitTimerRef() { return field_0x6c0; }
 #endif
 
 private:
