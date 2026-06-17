@@ -204,7 +204,7 @@ char fapGm_dataMem::mCsv[0x8000];
 int dumpTagObject(void* i_object, void*) {
     char profname_str[64];
     s16 profname = fopAcM_GetProfName(i_object);
-    sprintf(profname_str, "%d", profname);
+    SAFE_SPRINTF(profname_str, "%d", profname);
 
     if (fopAcM_IsActor(i_object)) {
         fopAc_ac_c* a_actor = (fopAc_ac_c*)i_object;
@@ -744,7 +744,7 @@ static void fapGm_AfterRecord() {
 BOOL isRecording = false;
 
 static void duskExecute() {
-    handleGamepadColor();
+    dusk::input::handleGamepadColor();
     updateAutoSave();
 
     if (dusk::getSettings().game.recordingMode) {
@@ -793,6 +793,10 @@ static void duskExecute() {
         dComIfGs_setArrowNum(dComIfGs_getArrowMax());
     }
 
+    if (dusk::getSettings().game.infiniteSeeds) {
+        dComIfGs_setPachinkoNum(dComIfGs_getPachinkoMax());
+    }
+
     if (dusk::getSettings().game.infiniteBombs) {
         dComIfGs_setBombNum(0, 99);
         dComIfGs_setBombNum(1, 99);
@@ -804,7 +808,7 @@ static void duskExecute() {
     }
 
     if (dusk::getSettings().game.infiniteRupees) {
-        dComIfGs_setRupee(9999);
+        dComIfGs_setRupee(dComIfGs_getRupeeMax());
     }
 
     if (dusk::getSettings().game.infiniteOxygen) {

@@ -1,6 +1,8 @@
 {
+    "id": "example.template_mod",
     "name": "Template Mod",
     "version": "1.0.0",
     "author": "Maddie",
-    "description": "An example Dusk mod"
+    "description": "An example Dusk mod",
+    "has_code": true
 }

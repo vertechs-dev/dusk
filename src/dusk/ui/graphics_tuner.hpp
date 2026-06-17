@@ -42,8 +42,11 @@ private:
 enum class GraphicsOption {
     InternalResolution,
     ShadowResolution,
+    Resampler,
     BloomMode,
     BloomMultiplier,
+    DepthOfFieldMode,
+    TextureReplacements,
 };
 
 Rml::String format_graphics_setting_value(GraphicsOption option, int value);
@@ -55,6 +58,7 @@ struct GraphicsTunerProps {
     int valueMin = 0;
     int valueMax = 0;
     int defaultValue = 0;
+    int step = 1;
 };
 
 class GraphicsTuner : public Document {

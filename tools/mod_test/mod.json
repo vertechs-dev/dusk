@@ -1,6 +1,8 @@
 {
+    "id":          "dev.twilitrealm.test_mod",
     "name":        "API Test Mod",
     "version":     "1.0.0",
     "author":      "dusk",
-    "description": "Exercises every feature of the Dusk mod API."
+    "description": "Exercises every feature of the Dusk mod API.",
+    "has_code":    true
 }

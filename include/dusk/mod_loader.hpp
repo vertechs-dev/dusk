@@ -3,9 +3,15 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <ranges>
 
 #include "dusk/mod_api.h"
-#include "miniz.h"
+#include "dusk/config_var.hpp"
+
+namespace dusk::modding {
+class ModBundle;
+class NativeModule;
+}
 
 namespace dusk {
 
@@ -19,17 +25,18 @@ struct RmlTabUpdateCallback {
     void* userdata;
 };
 
-struct LoadedMod {
+struct ModMetadata {
+    std::string id;
     std::string name;
     std::string version;
     std::string author;
     std::string description;
-    std::string mod_path;
-    std::string dir;
+    bool hasCode;
+};
 
-    void* handle = nullptr;
-    bool active = false;
-    bool load_failed = false;
+struct NativeMod {
+    std::unique_ptr<modding::NativeModule> handle;
+    DuskModAPI api{};
 
     using FnInit = void (*)(DuskModAPI*);
     using FnTick = void (*)(DuskModAPI*);
@@ -38,12 +45,57 @@ struct LoadedMod {
     FnInit fn_init = nullptr;
     FnTick fn_tick = nullptr;
     FnCleanup fn_cleanup = nullptr;
+};
 
-    DuskModAPI api{};
+enum class NativeModStatus : u8 {
+    /**
+     * Mod does not have native code included.
+     */
+    None,
 
-    std::vector<uint8_t> zip_data;
-    mz_zip_archive res_zip{};
-    bool res_zip_open = false;
+    /**
+     * Native code mod loaded successfully.
+     *
+     * Note that this only indicates load status of the native library. If the native lib throws in
+     * its init function, it will still be disabled!
+     */
+    Loaded,
+
+    /**
+     * This build was compiled without native mod support!
+     */
+    BuildDisabled,
+
+    /**
+     * Mod does not have a native library suitable for this build's platform.
+     */
+    ModMissingPlatform,
+
+    /**
+     * Mod is built for a different API version than this build of the game.
+     */
+    ApiVersionMismatch,
+
+    /**
+     * Unknown error loading the native mod.
+     */
+    Unknown,
+};
+
+struct LoadedMod {
+    ModMetadata metadata;
+    std::string mod_path;
+    std::string dir;
+
+    std::unique_ptr<ConfigVar<bool>> cvarIsEnabled;
+
+    bool active = false;
+    bool load_failed = false;
+
+    NativeModStatus native_status = NativeModStatus::None;
+    std::unique_ptr<NativeMod> native;
+
+    std::unique_ptr<modding::ModBundle> bundle;
 
     std::vector<RmlTabContentCallback> tab_content;
     std::vector<RmlTabUpdateCallback> tab_updates;
@@ -58,15 +110,25 @@ public:
     void tick();
     void shutdown();
 
-    const std::vector<LoadedMod>& mods() const { return m_mods; }
+    [[nodiscard]] auto mods() const {
+        return m_mods | std::views::transform([](const auto& m) -> LoadedMod& { return *m; });
+    }
+
+    [[nodiscard]] auto active_mods() const {
+        return mods() | std::views::filter([](const auto& m) { return m.active; });
+    }
 
 private:
-    std::vector<LoadedMod> m_mods;
+    std::vector<std::unique_ptr<LoadedMod>> m_mods;
     std::filesystem::path m_modsDir;
     bool m_initialized = false;
 
-    void tryLoadDusk(const std::filesystem::path& modPath);
+    void tryLoadDusk(const std::filesystem::path& modPath, bool fromDir);
+    void tryLoadNativeMod(LoadedMod& mod);
     void buildAPI(LoadedMod& mod);
+    void initOverlayFiles();
 };
+
+using ModIndex = std::ranges::range_difference_t<decltype(std::declval<ModLoader>().mods())>;
 
 }  // namespace dusk

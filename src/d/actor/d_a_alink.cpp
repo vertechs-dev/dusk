@@ -51,10 +51,14 @@
 #include "d/actor/d_a_ni.h"
 #include "d/d_s_play.h"
 
+#if TARGET_PC
+#include "dusk/action_bindings.h"
 #include "dusk/frame_interpolation.h"
 #include "dusk/settings.h"
 #include "res/Object/Alink.h"
 #include <cstring>
+#include <dusk/string.hpp>
+#endif
 
 static int daAlink_Create(fopAc_ac_c* i_this);
 static int daAlink_Delete(daAlink_c* i_this);
@@ -109,31 +113,31 @@ static void daAlink_coHitCallback(fopAc_ac_c* i_coActorA, dCcD_GObjInf* i_coObjI
     static_cast<daAlink_c*>(i_coActorA)->coHitCallback(i_coActorB, i_coObjInfA);
 }
 
-static cXyz l_waitBaseAnime(1.24279f, 102.00054f, 5.0f);
+static DUSK_CONSTEXPR cXyz l_waitBaseAnime(1.24279f, 102.00054f, 5.0f);
 
-static cXyz l_ironBallBaseAnime(-4.248938f, 89.0f, -5.267045f);
+static DUSK_CONSTEXPR cXyz l_ironBallBaseAnime(-4.248938f, 89.0f, -5.267045f);
 
-static cXyz l_halfAtnWaitBaseAnime(3.5f, 97.0f, -7.0f);
+static DUSK_CONSTEXPR cXyz l_halfAtnWaitBaseAnime(3.5f, 97.0f, -7.0f);
 
-static cXyz l_rWaitBaseAnime(4.313951f, 93.94436f, -5.207283f);
+static DUSK_CONSTEXPR cXyz l_rWaitBaseAnime(4.313951f, 93.94436f, -5.207283f);
 
-static cXyz l_lWaitBaseAnime(-4.300988f, 93.95595f, -5.218504f);
+static DUSK_CONSTEXPR cXyz l_lWaitBaseAnime(-4.300988f, 93.95595f, -5.218504f);
 
-static cXyz l_horseBaseAnime(-l_waitBaseAnime.x, 225.7f, 1.81f - l_waitBaseAnime.z);
+static DUSK_CONSTEXPR cXyz l_horseBaseAnime(-l_waitBaseAnime.x, 225.7f, 1.81f - l_waitBaseAnime.z);
 
-static cXyz l_boarBaseAnime(-l_waitBaseAnime.x, 186.17f, -20.29f - l_waitBaseAnime.z);
+static DUSK_CONSTEXPR cXyz l_boarBaseAnime(-l_waitBaseAnime.x, 186.17f, -20.29f - l_waitBaseAnime.z);
 
-static cXyz l_localHorseRidePos(-68.208984f, 41.609924f, 0.883789f);
+static DUSK_CONSTEXPR cXyz l_localHorseRidePos(-68.208984f, 41.609924f, 0.883789f);
 
-static cXyz l_localBoarRidePos(0.0f, 15.0f, 0.0f);
+static DUSK_CONSTEXPR cXyz l_localBoarRidePos(0.0f, 15.0f, 0.0f);
 
-static cXyz l_canoeBaseAnime(1.24279f - l_waitBaseAnime.x, 56.0f, -72.0f - l_waitBaseAnime.z);
+static DUSK_CONSTEXPR cXyz l_canoeBaseAnime(1.24279f - l_waitBaseAnime.x, 56.0f, -72.0f - l_waitBaseAnime.z);
 
-static cXyz l_sumouBaseAnimeSp(0.0f, 0.0f, 32.0f - l_waitBaseAnime.z);
+static DUSK_CONSTEXPR cXyz l_sumouBaseAnimeSp(0.0f, 0.0f, 32.0f - l_waitBaseAnime.z);
 
-static cXyz l_wolfBaseAnime(1.0f, 88.63934f, -28.497932f);
+static cXyz DUSK_CONST l_wolfBaseAnime(1.0f, 88.63934f, -28.497932f);
 
-static cXyz l_wolfRopeBaseAnime(0.115164f, 68.336296f, -7.667817f);
+static cXyz DUSK_CONST l_wolfRopeBaseAnime(0.115164f, 68.336296f, -7.667817f);
 
 static void dummy_lit_3757() {
     Vec temp = { 0.0f, 0.0f, 0.0f };
@@ -5987,7 +5991,7 @@ void daAlink_c::setItemMatrix(int param_0) {
 
         mDoMtx_stack_c::XrotS(-0x8000);
 #ifdef TARGET_PC
-        if (dusk::getSettings().game.enableFrameInterpolation) {
+        if (dusk::frame_interp::is_enabled()) {
             Mtx boot_mtx;
             mDoMtx_concat(mpLinkModel->getAnmMtx(0x18), mDoMtx_stack_c::get(), boot_mtx);
             mpLinkBootModels[1]->setAnmMtx(1, boot_mtx);
@@ -7559,12 +7563,7 @@ void daAlink_c::setBlendMoveAnime(f32 i_morf) {
     f32 sp2C;
     f32 sp28 = mpHIO->mMove.m.mFootPositionRatio;
     BOOL sp24 = checkEventRun();
-    BOOL sp20 = checkBootsMoveAnime(1);
-#if TARGET_PC
-    if (dusk::getSettings().game.enableFastIronBoots) {
-        sp20 = FALSE;
-    }
-#endif
+    BOOL sp20 = checkBootsMoveAnime(1) IF_DUSK(&& !dusk::getSettings().game.enableFastIronBoots);
 
     f32 var_f29;
 
@@ -8077,7 +8076,7 @@ void daAlink_c::setBlendAtnBackMoveAnime(f32 i_morf) {
     daAlink_ANM var_r27;
     daAlink_ANM var_r29;
 
-    if (checkBootsMoveAnime(1)) {
+    if (checkBootsMoveAnime(1) IF_DUSK(&& !dusk::getSettings().game.enableFastIronBoots)) {
         mMaxSpeed = mpHIO->mAtnMove.m.mMaxBackwardsSpeed;
         var_f27 = mpHIO->mAtnMove.m.mMinBackWalkFrame;
         var_f31 = mpHIO->mAtnMove.m.mBackWalkChangeRate;
@@ -9363,6 +9362,12 @@ BOOL daAlink_c::spActionTrigger() {
 }
 
 BOOL daAlink_c::midnaTalkTrigger() const {
+#if TARGET_PC
+    // If we have a custom bind for Midna, check that instead
+    if (dusk::isActionBound(dusk::ActionBinds::CALL_MIDNA, 0)) {
+        return dusk::getActionBindTrig(dusk::ActionBinds::CALL_MIDNA, 0);
+    }
+#endif
     return mItemTrigger & BTN_Z;
 }
 
@@ -16114,6 +16119,9 @@ int daAlink_c::procSlideLand() {
 
 int daAlink_c::procFrontRollInit() {
     BOOL is_guard_anime = checkUpperGuardAnime();
+#ifdef TARGET_PC    
+    const f32 fastRollMultiplier = dusk::getSettings().game.fastRoll ? 2.0f : 1.0f;
+#endif
 
     if (mProcID == PROC_FRONT_ROLL && mDemo.getDemoMode() == daPy_demo_c::DEMO_FRONT_ROLL_e) {
         return 0;
@@ -16129,10 +16137,16 @@ int daAlink_c::procFrontRollInit() {
         roll_anm_speed = mpHIO->mFrontRoll.m.mRollAnm.mStartFrame;
     }
 
-    setSingleAnime(ANM_FRONT_ROLL, mpHIO->mFrontRoll.m.mRollAnm.mSpeed, roll_anm_speed,
+    setSingleAnime(ANM_FRONT_ROLL,
+#ifdef TARGET_PC        
+                   mpHIO->mFrontRoll.m.mRollAnm.mSpeed * fastRollMultiplier, 
+#else
+                   mpHIO->mFrontRoll.m.mRollAnm.mSpeed,
+#endif
+                   roll_anm_speed,
                    mpHIO->mFrontRoll.m.mRollAnm.mEndFrame,
                    mpHIO->mFrontRoll.m.mRollAnm.mInterpolation);
-
+                   
     mNormalSpeed = speedF * mpHIO->mFrontRoll.m.mSpeedRate + mpHIO->mFrontRoll.m.mInitSpeed;
 
     f32 max_speed = mpHIO->mFrontRoll.m.mInitSpeed + mpHIO->mMove.m.mMaxSpeed * mpHIO->mFrontRoll.m.mSpeedRate;
@@ -16145,10 +16159,19 @@ int daAlink_c::procFrontRollInit() {
     }
 
     if (checkNoResetFlg0(FLG0_WATER_IN_MOVE)) {
-        mNormalSpeed *= mpHIO->mItem.mIronBoots.m.mWaterVelocityX;
+#if TARGET_PC
+        if (!(dusk::getSettings().game.enableFastIronBoots))
+#endif
+        {
+            mNormalSpeed *= mpHIO->mItem.mIronBoots.m.mWaterVelocityX;
+        }
     } else if (checkHeavyStateOn(TRUE, TRUE)) {
         mNormalSpeed *= mHeavySpeedMultiplier;
     }
+
+#ifdef TARGET_PC        
+    mNormalSpeed *= fastRollMultiplier;
+#endif
 
     current.angle.y = shape_angle.y;
     voiceStart(Z2SE_AL_V_BACKTEN);
@@ -16280,8 +16303,13 @@ int daAlink_c::procFrontRollCrashInit() {
     speed.y = mpHIO->mFrontRoll.m.mCrashSpeedV;
 
     if (checkNoResetFlg0(FLG0_WATER_IN_MOVE)) {
-        mNormalSpeed *= mpHIO->mItem.mIronBoots.m.mWaterVelocityX;
-        speed.y *= mpHIO->mItem.mIronBoots.m.mWaterVelocityY;
+#if TARGET_PC
+        if (!(dusk::getSettings().game.enableFastIronBoots))
+#endif
+        {
+            mNormalSpeed *= mpHIO->mItem.mIronBoots.m.mWaterVelocityX;
+            speed.y *= mpHIO->mItem.mIronBoots.m.mWaterVelocityY;
+        }
     }
 
     ANGLE_ADD_2(current.angle.y, 0x8000);
@@ -16375,6 +16403,9 @@ int daAlink_c::procFrontRollSuccess() {
 
 int daAlink_c::procSideRollInit(int param_0) {
     BOOL is_prev_guardAnm = checkUpperGuardAnime();
+#ifdef TARGET_PC            
+    const f32 fastRollMultiplier = dusk::getSettings().game.fastRoll ? 2.0f : 1.0f;
+#endif
 
     if (!commonProcInitNotSameProc(PROC_SIDE_ROLL)) {
         return 0;
@@ -16391,17 +16422,30 @@ int daAlink_c::procSideRollInit(int param_0) {
         current.angle.y = shape_angle.y + -0x4000;
     }
 
-    setSingleAnime(anmID, mpHIO->mGuard.mTurnMove.m.mSideRollAnmSpeed,
+    setSingleAnime(anmID, 
+#ifdef TARGET_PC        
+                   mpHIO->mGuard.mTurnMove.m.mSideRollAnmSpeed * fastRollMultiplier,
+#else
+                   mpHIO->mGuard.mTurnMove.m.mSideRollAnmSpeed,
+#endif
                    mpHIO->mGuard.mTurnMove.m.mTurnAnm.mStartFrame,
                    mpHIO->mGuard.mTurnMove.m.mTurnAnm.mEndFrame,
                    mpHIO->mGuard.mTurnMove.m.mTurnAnm.mInterpolation);
     mNormalSpeed = mpHIO->mGuard.mTurnMove.m.mSideRollSpeed;
 
     if (checkNoResetFlg0(FLG0_WATER_IN_MOVE)) {
-        mNormalSpeed *= mpHIO->mItem.mIronBoots.m.mWaterVelocityX;
+#if TARGET_PC
+        if (!(dusk::getSettings().game.enableFastIronBoots))
+#endif
+        {
+            mNormalSpeed *= mpHIO->mItem.mIronBoots.m.mWaterVelocityX;
+        }
     } else if (checkHeavyStateOn(TRUE, TRUE)) {
         mNormalSpeed *= mHeavySpeedMultiplier;
     }
+#ifdef TARGET_PC        
+    mNormalSpeed *= fastRollMultiplier;
+#endif
 
     setFootEffectProcType(0);
     field_0x2f9d = 4;
@@ -19724,7 +19768,7 @@ int daAlink_c::draw() {
                 dComIfGd_getOpaListDark()->entryImm(mpHookChain, 0);
 
 #if TARGET_PC
-                if (dusk::getSettings().game.enableFrameInterpolation &&
+                if (dusk::frame_interp::is_enabled() &&
                     mEquipItem == dItemNo_IRONBALL_e &&
                     mIronBallChainPos != NULL && mIronBallChainAngle != NULL)
                 {
@@ -19846,13 +19890,13 @@ static int daAlink_Delete(daAlink_c* i_this) {
     }
 }
 
-static actor_method_class l_daAlink_Method = {
+static DUSK_CONST actor_method_class l_daAlink_Method = {
     (process_method_func)daAlink_Create,  (process_method_func)daAlink_Delete,
     (process_method_func)daAlink_Execute, (process_method_func)NULL,
     (process_method_func)daAlink_Draw,
 };
 
-actor_process_profile_definition g_profile_ALINK = {
+DUSK_PROFILE actor_process_profile_definition DUSK_CONST g_profile_ALINK = {
     /* Layer ID     */ fpcLy_CURRENT_e,
     /* List ID      */ 5,
     /* List Prio    */ fpcPi_CURRENT_e,
