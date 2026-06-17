@@ -5,7 +5,7 @@
 ::   Usage:
 ::     build.bat                         (uses default preset)
 ::     build.bat windows-clang-debug     (override preset)
-::     build.bat -- run                  (build, then launch dusk.exe)
+::     build.bat -- run                  (build, then launch dusklight.exe)
 ::
 ::   Picks up the latest installed Visual Studio with C++ x64 tools via
 ::   vswhere.exe. Configure + build use the same preset name.
@@ -74,7 +74,7 @@ if errorlevel 1 goto build_fail
 
 echo.
 echo === Build succeeded ===
-echo Binary: %~dp0build\!PRESET!\dusk.exe
+echo Binary: %~dp0build\!PRESET!\dusklight.exe
 echo.
 
 if "!RUN_AFTER!"=="1" goto launch_game
@@ -82,8 +82,8 @@ endlocal
 exit /b 0
 
 :launch_game
-echo [build.bat] Launching dusk.exe...
-start "" "%~dp0build\!PRESET!\dusk.exe"
+echo [build.bat] Launching dusklight.exe...
+start "" "%~dp0build\!PRESET!\dusklight.exe"
 endlocal
 exit /b 0
 
