@@ -409,7 +409,19 @@ void daAlink_c::setEffect() {
         field_0x346c += 0.0625f;
 
         if (field_0x346c > 1.0f) {
-            if (checkNoResetFlg3(FLG3_UNK_200000) &&
+            if (
+#if TARGET_PC
+                // heros-shade fix: outside a real Twilight dark area
+                // getStartStageDarkArea() is s8 -1, which converts to u8 255 in
+                // getLightDropNum(u8) → an out-of-bounds read. With our repurposed
+                // Tear-of-Light setting FLG3_UNK_200000 in normal stages, that garbage
+                // can satisfy this latch and pin the wolf-light-drop glow ON forever
+                // (Link stays blue). Gate the latch on a real dark area (0/1/2) so normal
+                // stages (-1) fall through to the self-clearing ramp-down branch below;
+                // the short-circuit also avoids the OOB read.
+                dComIfGp_getStartStageDarkArea() >= 0 &&
+#endif
+                checkNoResetFlg3(FLG3_UNK_200000) &&
                 dComIfGp_getNeedLightDropNum() ==
                     dComIfGs_getLightDropNum(dComIfGp_getStartStageDarkArea()))
             {

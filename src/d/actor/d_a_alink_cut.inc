@@ -768,7 +768,23 @@ BOOL daAlink_c::checkDoCutAction() {
     } else if (checkCutHeadState()) {
         return procCutHeadInit();
     } else {
+#if TARGET_PC
+        // heros-shade fix: a mod (combat_roll) may reroute this fallback targeted
+        // jump-attack into a front roll via a procCutJumpInit pre-hook that cancels and
+        // returns 0 ("not fired"). That leaves the UNK_134 Do-status unconsumed, so
+        // checkNormalAction re-dispatches it every frame and restarts the roll (the
+        // 1-frame cancel). If the reroute landed Link in PROC_FRONT_ROLL, report the
+        // action as FIRED so the engine consumes the status exactly as it does for a
+        // real jump attack — no re-dispatch, the roll runs to completion. Vanilla is
+        // unaffected: without the reroute mProcID is never PROC_FRONT_ROLL here.
+        BOOL fired = procCutJumpInit(FALSE);
+        if (fired == 0 && mProcID == PROC_FRONT_ROLL) {
+            return 1;
+        }
+        return fired;
+#else
         return procCutJumpInit(FALSE);
+#endif
     }
 }
 
