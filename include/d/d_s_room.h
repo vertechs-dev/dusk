@@ -16,4 +16,12 @@ public:
     /* 0x1D8 */ u8 field_0x1d8;
 };
 
+#if TARGET_PC
+// heros-shade: called once per room load, the frame a room's actors finish their phased
+// create (any loaded room, not just the stay room). A hookable chokepoint for mods (the
+// TP-Combat placements system hooks this POST to spawn authored enemies at the true
+// room-load moment with no fixed delay). No-op in the engine itself.
+void dStage_onRoomActorsReady(int roomNo);
+#endif
+
 #endif /* D_S_D_S_ROOM_H */

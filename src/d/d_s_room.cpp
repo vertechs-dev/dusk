@@ -19,6 +19,24 @@
 #include "dusk/extras.h"
 #endif
 
+#if TARGET_PC
+// heros-shade: per-room "placements already spawned for this load" tracking + a hookable
+// notification. dScnRoom_Execute calls dStage_onRoomActorsReady(roomNo) exactly once per
+// room load — the frame that room's actors finish their phased create — for ANY loaded
+// room (including adjacent rooms streamed in for seamless viewing), not just the stay room.
+// The TP-Combat placements mod hooks this (post) to spawn its authored enemies with correct
+// timing and no fixed delay. Body kept non-trivial so the hook framework has a patchable
+// prologue. The per-room flag is reset in dScnRoom_Delete when the room unloads.
+static bool s_roomActorsReadyFired[64];
+// noinline + the volatile write: the engine calls this from the same TU, so without
+// these the compiler would inline/elide it and the mod's funchook (which patches the
+// symbol's prologue) would never fire.
+__declspec(noinline) void dStage_onRoomActorsReady(int roomNo) {
+    static volatile int s_lastReadyRoom = -1;
+    s_lastReadyRoom = roomNo;
+}
+#endif
+
 static int dScnRoom_Draw(room_of_scene_class* i_this) {
     fpc_ProcID id = fpcM_GetID(i_this);
     return 1;
@@ -285,6 +303,19 @@ static int dScnRoom_Execute(room_of_scene_class* i_this) {
         }
     }
 
+#if TARGET_PC
+    // heros-shade: notify once when THIS room's actors are fully built — load requested
+    // (field_0x1d4 < 0) and no longer creating — for ANY loaded room, not just the stay
+    // room. Drives the placements mod's per-room spawn with no fixed delay.
+    if (roomNo >= 0 && roomNo < 64 &&
+        i_this->field_0x1d4 < 0 && !isCreating(fpcM_LayerID(i_this)) &&
+        !s_roomActorsReadyFired[roomNo])
+    {
+        s_roomActorsReadyFired[roomNo] = true;
+        dStage_onRoomActorsReady(roomNo);
+    }
+#endif
+
     return 1;
 }
 
@@ -326,6 +357,12 @@ static int dScnRoom_Delete(room_of_scene_class* i_this) {
     OS_REPORT("dScnRoom_Delete():room%d\n", fopScnM_GetParam(i_this));
 
     int roomNo = fopScnM_GetParam(i_this);
+
+#if TARGET_PC
+    // heros-shade: room unloading — clear its placements-spawned flag so a later reload
+    // re-notifies (and re-spawns, governed by the mod's respawns param).
+    if (roomNo >= 0 && roomNo < 64) s_roomActorsReadyFired[roomNo] = false;
+#endif
 
     #if DEBUG
     dBgp_c* bgp = dStage_roomControl_c::getBgp(roomNo);

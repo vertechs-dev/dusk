@@ -1190,7 +1190,16 @@ public:
     BOOL checkWolfEnemyLeftThrow() const { return checkNoResetFlg2(FLG2_WOLF_ENEMY_LEFT_THROW); }
 
     void onWolfLightDropGet() {
-        onEndResetFlg0(ERFLG0_UNK_20000000);
+        onEndResetFlg0(ERFLG0_UNK_20000000);   // glow trigger — the brief light-drop flash
+#if TARGET_PC
+        // heros-shade: FLG3_UNK_200000 is the STICKY wolf-tear-collect flag. It latches the
+        // glow ON forever and corrupts human Link into a wolf-ish state (disfigured skeletal
+        // mesh + softlock on certain actor interactions). The TP-Combat mod repurposes the
+        // Tear actor as a human-Link kill effect, so only set the sticky flag when Link is
+        // actually a wolf. Human Link then gets ONLY the brief glow: the ERFLG0 ramp rises
+        // and, with the latch flag unset, self-clears (ramps back down) within ~1s.
+        if (checkWolf())
+#endif
         onNoResetFlg3(FLG3_UNK_200000);
     }
 
