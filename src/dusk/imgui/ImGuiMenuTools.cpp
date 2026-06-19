@@ -12,6 +12,7 @@
 #include "d/actor/d_a_alink.h"
 #include "d/actor/d_a_horse.h"
 #include "d/d_com_inf_game.h"
+#include "f_op/f_op_actor_mng.h"   // fopAcM_GetRoomNo — for the Level Info overlay
 #include "dusk/dusk.h"
 #include "dusk/main.h"
 #include "m_Do/m_Do_main.h"
@@ -103,6 +104,7 @@ namespace dusk {
             ImGui::MenuItem("Debug Overlay", hotkeys::SHOW_DEBUG_OVERLAY, &m_showDebugOverlay);
             ImGui::MenuItem("Heap Viewer", hotkeys::SHOW_HEAP_VIEWER, &m_showHeapOverlay);
             ImGui::MenuItem("Player Info", hotkeys::SHOW_PLAYER_INFO, &m_showPlayerInfo);
+            ImGui::MenuItem("Level Info", nullptr, &m_showLevelInfo);
             ImGui::MenuItem("Debug Camera", hotkeys::SHOW_DEBUG_CAMERA, &m_showCameraOverlay);
             ImGui::MenuItem("Audio Debug", hotkeys::SHOW_AUDIO_DEBUG, &m_showAudioDebug);
             ImGui::MenuItem("Bloom", nullptr, &m_showBloomWindow);
@@ -253,6 +255,47 @@ namespace dusk {
             ShowCornerContextMenu(m_playerInfoOverlayCorner, m_debugOverlayCorner);
         }
 
+        ImGui::End();
+        ImGui::PopFont();
+    }
+
+    void ImGuiMenuTools::ShowLevelInfo() {
+        if (!getSettings().backend.enableAdvancedSettings || !m_showLevelInfo) {
+            return;
+        }
+
+        ImGui::PushFont(ImGuiEngine::fontMono);
+
+        ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration |
+            ImGuiWindowFlags_AlwaysAutoResize |
+            ImGuiWindowFlags_NoFocusOnAppearing |
+            ImGuiWindowFlags_NoNav;
+        if (m_levelInfoOverlayCorner != -1) {
+            SetOverlayWindowLocation(m_levelInfoOverlayCorner);
+            windowFlags |= ImGuiWindowFlags_NoMove;
+        }
+
+        ImGui::SetNextWindowBgAlpha(0.65f);
+        if (ImGui::Begin("Level Info", nullptr, windowFlags)) {
+            // Same sources placements::buildMapKey() keys on, so what shows here is
+            // directly authorable into res/placements.json (stage/room/layer).
+            daAlink_c* player = (daAlink_c*)dComIfGp_getPlayer(0);
+            const char* stage = dComIfGp_getStartStageName();
+            const int   room  = player != nullptr ? (int)fopAcM_GetRoomNo(player) : -1;
+            const int   layer = dComIfG_play_c::getLayerNo(0);
+            const int   dark  = (int)dComIfGp_getStartStageDarkArea();
+
+            ImGuiStringViewText(fmt::format(FMT_STRING("Map:      {}\n"), stage != nullptr ? stage : "?"));
+            ImGuiStringViewText(fmt::format(FMT_STRING("Room:     {}\n"), room));
+            ImGuiStringViewText(fmt::format(FMT_STRING("Layer:    {}\n"), layer));
+            ImGuiStringViewText(fmt::format(FMT_STRING("DarkArea: {}\n"), dark));
+
+            ImGui::Separator();
+            ImGuiStringViewText(fmt::format(FMT_STRING("scope: {}/{}/{}\n"),
+                stage != nullptr ? stage : "?", room, layer));
+
+            ShowCornerContextMenu(m_levelInfoOverlayCorner, m_playerInfoOverlayCorner);
+        }
         ImGui::End();
         ImGui::PopFont();
     }

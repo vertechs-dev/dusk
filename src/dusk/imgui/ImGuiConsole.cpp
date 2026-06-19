@@ -373,6 +373,7 @@ namespace dusk {
             m_menuTools.ShowMapLoader();
             m_menuTools.ShowBloomWindow();
             m_menuTools.ShowPlayerInfo();
+            m_menuTools.ShowLevelInfo();
             m_menuTools.ShowAudioDebug();
             m_menuTools.ShowSaveEditor();
             m_menuTools.ShowStateShare();
