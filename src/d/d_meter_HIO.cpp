@@ -2302,6 +2302,9 @@ void dMeter_drawHIO_c::updateOnWide() {
     g_drawHIO.mButtonCrossONPosX = mDoGph_gInf_c::ScaleHUDXLeft(g_drawHIO.mButtonCrossONPosX);
     g_drawHIO.mLifeGaugePosX = mDoGph_gInf_c::ScaleHUDXLeft(g_drawHIO.mLifeGaugePosX);
     g_drawHIO.mLanternMeterPosX = mDoGph_gInf_c::ScaleHUDXLeft(g_drawHIO.mLanternMeterPosX);
+    // TP Combat: anchor the restored magic meter to the HUD's left safe-area
+    // edge on ultrawide, the same way every other left-side meter is anchored.
+    g_drawHIO.mMagicMeterPosX = mDoGph_gInf_c::ScaleHUDXLeft(g_drawHIO.mMagicMeterPosX);
 
     // River Canoe Minigame
     g_drawHIO.mMiniGame.mCounterPosX[1] = mDoGph_gInf_c::ScaleHUDXRight(g_drawHIO.mMiniGame.mCounterPosX[1]);

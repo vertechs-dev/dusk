@@ -584,17 +584,19 @@ void dMeter2Draw_c::draw() {
 
     // Restore the cut magic meter (TP Combat). Retail dropped the magic meter's
     // per-frame pipeline entirely: the controller never updates its geometry or
-    // alpha, and draw() never renders meterType 0. When magic is enabled, do all
-    // three here — recompute geometry from the live value, force the shared
-    // parent pane visible, and render it. Always-on (no fade) suits a cooldown
-    // meter. Gated on the use-flag so stock/no-mod builds are unaffected.
-    if (dComIfGs_isGetMagicUseFlag()) {
-        f32 magicOffX = g_drawHIO.mLifeTopPosX;
-        f32 magicOffY = (dComIfGs_getMaxLife() <= 50) ? g_drawHIO.mLifeTopPosY : 0.0f;
+    // alpha, and draw() never renders meterType 0. Do all three here — but only
+    // when magic is enabled AND the heart meter is visible, so the bar appears,
+    // hides, and fades in lockstep with the rest of the HUD (pause, game over,
+    // cutscenes, area transitions). Gated on the use-flag so stock builds are
+    // unaffected.
+    if (dComIfGs_isGetMagicUseFlag() && mpLifeParent->getAlphaRate() > 0.0f) {
+        // mMagicMeterPosX is safe-area-anchored via ScaleHUDXLeft in d_meter_HIO
+        // (like mLanternMeterPosX), so the bar tracks the HUD's left edge on
+        // ultrawide instead of drifting toward screen center. Use the raw pos
+        // (no mLifeTopPos offset, which is unscaled and would skew ultrawide).
         drawMagic(dComIfGs_getMaxMagic(), dComIfGs_getMagic(),
-                  g_drawHIO.mMagicMeterPosX + magicOffX,
-                  g_drawHIO.mMagicMeterPosY + magicOffY);
-        mMeterAlphaRate[0] = g_drawHIO.mParentAlpha;
+                  g_drawHIO.mMagicMeterPosX, g_drawHIO.mMagicMeterPosY);
+        mMeterAlphaRate[0] = mpLifeParent->getAlphaRate();
         drawKanteraScreen(0);
     }
 
