@@ -581,6 +581,23 @@ void dMeter2Draw_c::draw() {
     graf_ctx->setup2D();
 
     mpScreen->draw(0.0f, 0.0f, graf_ctx);
+
+    // Restore the cut magic meter (TP Combat). Retail dropped the magic meter's
+    // per-frame pipeline entirely: the controller never updates its geometry or
+    // alpha, and draw() never renders meterType 0. When magic is enabled, do all
+    // three here — recompute geometry from the live value, force the shared
+    // parent pane visible, and render it. Always-on (no fade) suits a cooldown
+    // meter. Gated on the use-flag so stock/no-mod builds are unaffected.
+    if (dComIfGs_isGetMagicUseFlag()) {
+        f32 magicOffX = g_drawHIO.mLifeTopPosX;
+        f32 magicOffY = (dComIfGs_getMaxLife() <= 50) ? g_drawHIO.mLifeTopPosY : 0.0f;
+        drawMagic(dComIfGs_getMaxMagic(), dComIfGs_getMagic(),
+                  g_drawHIO.mMagicMeterPosX + magicOffX,
+                  g_drawHIO.mMagicMeterPosY + magicOffY);
+        mMeterAlphaRate[0] = g_drawHIO.mParentAlpha;
+        drawKanteraScreen(0);
+    }
+
     drawKanteraScreen(1);
     drawKanteraScreen(2);
 
