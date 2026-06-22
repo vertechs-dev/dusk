@@ -651,6 +651,13 @@ void dMeter2Draw_c::draw() {
         drawKanteraScreen(0);
     }
 
+    // TP Combat Souls HUD: drawn only when the mod enabled it AND the life HUD is
+    // visible, so it fades/hides with the rest of the HUD. Position is the mod's
+    // raw offset run through the safe-area anchor (same as the magic meter).
+    if (s_soulsEnabled && mpLifeParent->getAlphaRate() > 0.0f) {
+        drawSoulsCounter(s_soulsCount, mDoGph_gInf_c::ScaleHUDXLeft(s_soulsOffX), s_soulsOffY);
+    }
+
     drawKanteraScreen(1);
     drawKanteraScreen(2);
 
