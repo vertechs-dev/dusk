@@ -577,14 +577,22 @@ void dMeter2Draw_c::exec(u32 i_status) {
     }
 }
 
+// Mod-set magic-meter HUD offsets (raw logical units), driven each frame by the
+// TP Combat mod via the exported setter below. Kept in file-static storage — NOT
+// in g_drawHIO — because dMeter_drawHIO_c::updateOnWide() does `g_drawHIO = {}`
+// every frame on PC, which would stomp anything written into g_drawHIO and make
+// the bar flicker between the default and the mod's value. draw() reads these.
+static f32 s_magicMeterOffX = 0.0f;
+static f32 s_magicMeterOffY = 0.0f;
+
 // Mod-facing setter for the restored magic meter's HUD position (TP Combat).
 // A mod can't link engine data (g_drawHIO) or the inline safe-area statics that
-// ScaleHUDXLeft touches, but it CAN call an exported engine function — so the mod
-// passes raw offsets and we apply the safe-area anchor here, engine-side. X uses
-// ScaleHUDXLeft so it stays put on ultrawide; Y is a straight vertical offset.
+// ScaleHUDXLeft touches, but it CAN call an exported engine function. The mod
+// passes raw offsets; we stash them here and apply the safe-area anchor at draw
+// time (see draw()).
 extern "C" void dMeter2_setMagicMeterOffset(f32 rawX, f32 rawY) {
-    g_drawHIO.mMagicMeterPosX = mDoGph_gInf_c::ScaleHUDXLeft(rawX);
-    g_drawHIO.mMagicMeterPosY = rawY;
+    s_magicMeterOffX = rawX;
+    s_magicMeterOffY = rawY;
 }
 
 void dMeter2Draw_c::draw() {
@@ -601,12 +609,12 @@ void dMeter2Draw_c::draw() {
     // cutscenes, area transitions). Gated on the use-flag so stock builds are
     // unaffected.
     if (dComIfGs_isGetMagicUseFlag() && mpLifeParent->getAlphaRate() > 0.0f) {
-        // mMagicMeterPosX is safe-area-anchored via ScaleHUDXLeft in d_meter_HIO
-        // (like mLanternMeterPosX), so the bar tracks the HUD's left edge on
-        // ultrawide instead of drifting toward screen center. Use the raw pos
-        // (no mLifeTopPos offset, which is unscaled and would skew ultrawide).
+        // Position from the mod-set offsets (s_magicMeterOff*), NOT g_drawHIO —
+        // updateOnWide() rebuilds g_drawHIO every frame and would stomp it. X is
+        // safe-area-anchored via ScaleHUDXLeft so the bar tracks the HUD's left
+        // edge on ultrawide; Y is a straight vertical offset.
         drawMagic(dComIfGs_getMaxMagic(), dComIfGs_getMagic(),
-                  g_drawHIO.mMagicMeterPosX, g_drawHIO.mMagicMeterPosY);
+                  mDoGph_gInf_c::ScaleHUDXLeft(s_magicMeterOffX), s_magicMeterOffY);
         mMeterAlphaRate[0] = mpLifeParent->getAlphaRate();
         drawKanteraScreen(0);
     }
