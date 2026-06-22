@@ -73,6 +73,7 @@ public:
     void setAlphaLightDropAnimeMin();
     void setAlphaLightDropAnimeMax();
     void drawRupee(s16);
+    void drawSoulsCounter(s16 count, f32 x, f32 y);   // TP Combat Souls HUD
     void setAlphaRupeeChange(bool);
     void setAlphaRupeeAnimeMin();
     void setAlphaRupeeAnimeMax();
@@ -187,6 +188,10 @@ private:
     /* 0x2C0 */ CPaneMgr* mpRupeeTexture[4][2];
     /* 0x2E0 */ CPaneMgr* mpKeyParent;
     /* 0x2E4 */ CPaneMgr* mpKeyTexture[5];
+    // TP Combat Souls HUD (4 gold digits + icon; direct J2DPicture draws)
+    J2DPicture* mpSoulsDigit[4];   // 4 digit textures (gold HUD font)
+    J2DPicture* mpSoulsIcon;       // currency icon (vanilla seed or custom)
+    ResTIMG*    mpSoulsIconBuf;    // 0xC00 buffer behind mpSoulsIcon
     /* 0x2F8 */ CPaneMgr* mpButtonParent;
     /* 0x2FC */ int field_0x2fc;
     /* 0x300 */ CPaneMgr* mpButtonA;

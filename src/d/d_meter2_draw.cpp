@@ -276,6 +276,13 @@ dMeter2Draw_c::~dMeter2Draw_c() {
     JKR_DELETE(mpKeyParent);
     mpKeyParent = NULL;
 
+    // TP Combat Souls HUD cleanup
+    for (int i = 0; i < 4; i++) {
+        if (mpSoulsDigit[i] != NULL) { JKR_DELETE(mpSoulsDigit[i]); mpSoulsDigit[i] = NULL; }
+    }
+    if (mpSoulsIcon != NULL) { JKR_DELETE(mpSoulsIcon); mpSoulsIcon = NULL; }
+    if (mpSoulsIconBuf != NULL) { heap->free(mpSoulsIconBuf); mpSoulsIconBuf = NULL; }
+
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 2; j++) {
             heap->free(mpItemBTex[i][j]);
@@ -1013,6 +1020,20 @@ void dMeter2Draw_c::initRupeeKey() {
     mpKeyParent = JKR_NEW CPaneMgr(mpScreen, MULTI_CHAR('key_n'), 2, NULL);
     JUT_ASSERT(0, mpKeyParent != NULL);
     mpKeyParent->setAlphaRate(0.0f);
+
+    // TP Combat Souls HUD: 4 gold digits + an icon, drawn directly (no .blo panes).
+    ResTIMG* soulsDigit0 = getNumberTexture(0);
+    for (int i = 0; i < 4; i++) {
+        mpSoulsDigit[i] = JKR_NEW J2DPicture(soulsDigit0);
+        mpSoulsDigit[i]->setBasePosition(J2DBasePosition_4);
+    }
+    mpSoulsIconBuf = (ResTIMG*)heap->alloc(0xC00, 0x20);
+    dMeter2Info_readItemTexture((u8)dItemNo_BOW_e, mpSoulsIconBuf,
+                                NULL, NULL, NULL, NULL, NULL, NULL, NULL, -1);
+    DCStoreRangeNoSync(mpSoulsIconBuf, 0xC00);
+    mpSoulsIcon = JKR_NEW J2DPicture(mpSoulsIconBuf);
+    mpSoulsIcon->setBasePosition(J2DBasePosition_4);
+    mpSoulsIcon->changeTexture((ResTIMG*)mpSoulsIconBuf, 0);
 
     drawRupee(dComIfGs_getRupee());
     drawKey(dComIfGs_getKeyNum());
@@ -2092,6 +2113,37 @@ void dMeter2Draw_c::drawRupee(s16 i_rupeeNum) {
             mpRupeeTexture[i][j]->paneTrans(g_drawHIO.mRupeeCountPosX, g_drawHIO.mRupeeCountPosY);
         }
     }
+}
+
+void dMeter2Draw_c::drawSoulsCounter(s16 count, f32 x, f32 y) {
+    if (count < 0)    count = 0;
+    if (count > 9999) count = 9999;
+
+    // One-time icon re-skin when the mod supplies custom .bti bytes.
+    if (s_soulsIconDirty) {
+        s_soulsIconDirty = false;
+        if (s_soulsIconBytes != NULL && s_soulsIconLen > 0) {
+            u32 len = s_soulsIconLen <= 0xC00 ? s_soulsIconLen : 0xC00;
+            memcpy(mpSoulsIconBuf, s_soulsIconBytes, len);
+            DCStoreRangeNoSync(mpSoulsIconBuf, 0xC00);
+            mpSoulsIcon->changeTexture((ResTIMG*)mpSoulsIconBuf, 0);
+        }
+    }
+
+    u8 a = (u8)(mpLifeParent->getAlphaRate() * 255.0f);   // fade with the HUD
+
+    // Starting sizes — tuned in-game later to match the rupee.
+    const f32 DIGIT_W = 24.0f, DIGIT_H = 24.0f, STEP = 20.0f;
+    const f32 ICON_W  = 28.0f, ICON_H  = 28.0f, ICON_GAP = 6.0f;
+
+    int digits[4] = { count / 1000, (count / 100) % 10, (count / 10) % 10, count % 10 };
+    for (int i = 0; i < 4; i++) {
+        mpSoulsDigit[i]->changeTexture(getNumberTexture(digits[i]), 0);
+        mpSoulsDigit[i]->setAlpha(a);
+        mpSoulsDigit[i]->draw(x + i * STEP, y, DIGIT_W, DIGIT_H, 0, 0, 0);
+    }
+    mpSoulsIcon->setAlpha(a);
+    mpSoulsIcon->draw(x + 4 * STEP + ICON_GAP, y, ICON_W, ICON_H, 0, 0, 0);
 }
 
 void dMeter2Draw_c::setAlphaRupeeChange(bool param_0) {
