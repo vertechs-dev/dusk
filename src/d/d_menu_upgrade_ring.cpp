@@ -963,7 +963,7 @@ void dMenu_UpgradeRing_c::setScale() {
             }
         } else {
             if (i == mCurrentSlot && (mStatus == STATUS_WAIT || mStatus == STATUS_EXPLAIN || mStatus == STATUS_EXPLAIN_FORCE)) {
-                // Refresh the name/cost box for the currently-selected node.
+                // Refresh the name box for the currently-selected node.
                 setNameString(0);
                 setItemScale(i, g_ringHIO.mSelectItemScale);
             } else {
