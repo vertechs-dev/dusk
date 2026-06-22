@@ -313,6 +313,11 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     mpBlackTex = JKR_NEW J2DPicture(timg);
     mpBlackTex->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(0, 0, 0, 0xff));
     mpBlackTex->setAlpha(0);
+    ResTIMG* numTimg = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource(
+        'TIMG', dMeter2Info_getNumberTextureName(0));
+    for (int i = 0; i < 3; i++) {
+        mpItemNumTex[i] = JKR_NEW J2DPicture(numTimg);
+    }
     mpSpotScreen = JKR_NEW J2DScreen();
     dPaneClass_setPriority(&mpResData[1], mpHeap, mpSpotScreen,
                            "SCRN/zelda_item_select_icon3_spot.blo", 0x20000,
@@ -477,6 +482,13 @@ dMenu_UpgradeRing_c::~dMenu_UpgradeRing_c() {
 
     JKR_DELETE(mpString);
     mpString = NULL;
+
+    for (int i = 0; i < 3; i++) {
+        if (mpItemNumTex[i] != NULL) {
+            JKR_DELETE(mpItemNumTex[i]);
+            mpItemNumTex[i] = NULL;
+        }
+    }
 
     mpHeap->getTotalFreeSize();
 
@@ -1076,6 +1088,13 @@ void dMenu_UpgradeRing_c::drawItem() {
                     }
                 }
             }
+            // Souls cost readout, bottom-right of the icon frame.
+            const DuskUpgradeCategory* cat = curCat();
+            if (cat != NULL && i < (int)cat->node_count) {
+                f32 fx = mItemSlotPosX[i] - 24.0f + mCenterPosX;
+                f32 fy = mItemSlotPosY[i] - 24.0f + mCenterPosY;
+                drawCost(cat->nodes[i].cost, cat->nodes[i].state, fx + 24.0f, fy + 48.0f);
+            }
         }
     }
 }
@@ -1106,6 +1125,48 @@ void dMenu_UpgradeRing_c::drawItem2() {
                 }
             }
         }
+        const DuskUpgradeCategory* cat = curCat();
+        if (cat != NULL && idx < (int)cat->node_count) {
+            f32 fx = mItemSlotPosX[idx] - 24.0f + mCenterPosX;
+            f32 fy = mItemSlotPosY[idx] - 24.0f + mCenterPosY;
+            drawCost(cat->nodes[idx].cost, cat->nodes[idx].state, fx + 24.0f, fy + 48.0f);
+        }
+    }
+}
+
+void dMenu_UpgradeRing_c::drawCost(u16 cost, u8 state, f32 x, f32 y) {
+    // Owned upgrades show the checkmark overlay instead of a price.
+    if (state == DUSK_UPG_OWNED) return;
+
+    // Tint the digits by affordability.
+    JUtility::TColor colorBlack(0, 0, 0, 0);
+    JUtility::TColor colorWhite(255, 255, 255, 255);
+    if (state == DUSK_UPG_CANT_AFFORD) {
+        colorWhite.set(255, 80, 80, 255);     // red
+    } else if (state == DUSK_UPG_LOCKED) {
+        colorWhite.set(150, 150, 150, 255);   // grey
+    }
+    for (int i = 0; i < 3; i++) {
+        mpItemNumTex[i]->setBlackWhite(colorBlack, colorWhite);
+    }
+
+    u32 c = cost > 999 ? 999 : cost;
+    int hundreds = (int)(c / 100);
+    int tens     = (int)((c / 10) % 10);
+    int ones     = (int)(c % 10);
+    int digits   = hundreds > 0 ? 3 : (tens > 0 ? 2 : 1);
+
+    int vals[3];
+    if (digits == 3)      { vals[0] = hundreds; vals[1] = tens; vals[2] = ones; }
+    else if (digits == 2) { vals[0] = tens;     vals[1] = ones; }
+    else                  { vals[0] = ones; }
+
+    f32 alpha = g_ringHIO.mItemIconAlpha * mAlphaRate;
+    for (int i = 0; i < digits; i++) {
+        ResTIMG* t = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource('TIMG', dMeter2Info_getNumberTextureName(vals[i]));
+        mpItemNumTex[i]->changeTexture(t, 0);
+        mpItemNumTex[i]->setAlpha(alpha);
+        mpItemNumTex[i]->draw(x + i * 16.0f, y - 16.0f, 16.0f, 16.0f, 0, 0, 0);
     }
 }
 

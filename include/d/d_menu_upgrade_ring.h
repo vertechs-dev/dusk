@@ -47,6 +47,7 @@ public:
     void setNameString(u32);
     void setActiveCursor();
     void drawItem();
+    void drawCost(u16 cost, u8 state, f32 x, f32 y);   // on-icon Souls price
     void drawItem2();
     void stick_wait_init();
     void stick_wait_proc();
@@ -108,6 +109,7 @@ private:
     /* 0x068 */ J2DPicture* mpSelectItemTex[4][3];
     /* 0x098 */ J2DPicture* mpItemTex[MAX_ITEM_SLOTS][3];
     /* 0x1B8 */ J2DPicture* mpBlackTex;
+    J2DPicture* mpItemNumTex[3];   // up-to-3 cost digits, drawn on each node icon
     /* 0x1F0 */ ResTIMG* mpSelectItemTexBuf[4][3][2];
     /* 0x250 */ ResTIMG* mpItemBuf[MAX_ITEM_SLOTS][3];
     /* 0x370 */ dMenu_ItemExplain_c* mpItemExplain;
