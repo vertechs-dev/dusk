@@ -15,6 +15,12 @@
 #include "miniz.h"
 #include "nlohmann/json.hpp"
 
+// Upgrade-ring API entry points (defined in src/d/d_menu_upgrade_ring_api.cpp).
+extern "C" bool DuskUpgradeRing_Open(const DuskUpgradeRingModel*, const DuskUpgradeRingCallbacks*);
+extern "C" void DuskUpgradeRing_Update(const DuskUpgradeRingModel*);
+extern "C" void DuskUpgradeRing_Close(void);
+extern "C" bool DuskUpgradeRing_IsOpen(void);
+
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -376,6 +382,10 @@ void ModLoader::buildAPI(LoadedMod& mod) {
     mod.api.hook_dispatch_post = hookDispatchPost;
     mod.api.service_publish = cb_service_publish;
     mod.api.service_get = cb_service_get;
+    mod.api.upgrade_ring_open    = &DuskUpgradeRing_Open;
+    mod.api.upgrade_ring_update  = &DuskUpgradeRing_Update;
+    mod.api.upgrade_ring_close   = &DuskUpgradeRing_Close;
+    mod.api.upgrade_ring_is_open = &DuskUpgradeRing_IsOpen;
 }
 
 void ModLoader::tryLoadDusk(const std::filesystem::path& modPath) {
