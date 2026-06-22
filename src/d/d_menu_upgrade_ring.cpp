@@ -25,6 +25,7 @@
 #include "d/d_msg_string.h"
 #include "m_Do/m_Do_controller_pad.h"
 #include "m_Do/m_Do_graphic.h"
+#include "dusk/mod_api.h"
 #include <cstring>
 
 #include <cstdio>
@@ -52,8 +53,15 @@ static procFunc stick_proc[] = {
     /* STATUS_EXPLAIN_FORCE */ &dMenu_UpgradeRing_c::stick_explain_proc,
 };
 
+const DuskUpgradeCategory* dMenu_UpgradeRing_c::curCat() const {
+    if (!mpModel || mpModel->category_count == 0) return nullptr;
+    uint32_t c = mpModel->current_category < mpModel->category_count ? mpModel->current_category : 0;
+    return &mpModel->categories[c];
+}
+
 dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick, CSTControl* i_cStick,
-                           u8 i_ringOrigin) {
+                           u8 i_ringOrigin, const DuskUpgradeRingModel* i_model) {
+    mpModel = i_model;
     static const u64 xy_text[5] = {
         MULTI_CHAR('yx_text'), MULTI_CHAR('yx_te_s1'), MULTI_CHAR('yx_te_s2'), MULTI_CHAR('yx_te_s3'), MULTI_CHAR('yx_te_s4'),
     };
@@ -210,29 +218,21 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
         mItemSlotParam2[i] = 0.0f;
         mItemSlotParam1[i] = 0.0f;
     }
-    for (int i = 0; i < MAX_ITEM_SLOTS; i++) {
-        if (dComIfGs_getLineUpItem(i) != dItemNo_NONE_e) {
-            mTotalItemTexToAlloc++;
-        }
-    }
-    if (mTotalItemTexToAlloc < 1) {
-        mItemsTotal = 1;
-    } else {
-        mItemsTotal = mTotalItemTexToAlloc;
-    }
-    for (int i = 0; i < MAX_ITEM_SLOTS; i++) {
-        mItemSlots[i] = dComIfGs_getLineUpItem(i);
-    }
-    for (int i = 0; i < mItemsTotal; i++) {
-        mItemSlots[i] = dComIfGs_getLineUpItem(i);
-        if (dComIfGs_getSelectItemIndex(2) == dComIfGs_getWolfAbility(i)) {
-            field_0x6ac = i;
-        }
+    // Upgrade ring: nodes come from the supplied model, not the save-file
+    // line-up items. Slots are positional (slot i == node i).
+    {
+        const DuskUpgradeCategory* cat = curCat();
+        u8 n = cat ? (u8)cat->node_count : 0;
+        if (n > MAX_ITEM_SLOTS) n = MAX_ITEM_SLOTS;
+        mItemsTotal = n;
+        mTotalItemTexToAlloc = n;
+        for (int i = 0; i < n; i++) mItemSlots[i] = (u8)i;
     }
     mRingRadiusH = g_ringHIO.mRingRadiusH;
     mRingRadiusV = g_ringHIO.mRingRadiusV;
     field_0x66e = 0x8000;
-    field_0x634 = 0x10000 / mItemsTotal;
+    // Guard against divide-by-zero when the model is empty / not yet supplied.
+    field_0x634 = mItemsTotal > 0 ? 0x10000 / mItemsTotal : 0x10000;
     for (int i = 0; i < MAX_SELECT_ITEM; i++) {
         for (int j = 0; j < 3; j++) {
             for (int k = 0; k < SELECT_ITEM_NUM; k++) {
@@ -269,32 +269,7 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     for (int i = 5; i < 10; i++) {
         mpTextParent[i] = NULL;
     }
-    for (int i = 0; i < mTotalItemTexToAlloc; i++) {
-        for (int j = 0; j < 3; j++) {
-            mpItemBuf[i][j] = (ResTIMG*)mpHeap->alloc(0xC00, 0x20);
-        }
-        u8 item = dComIfGs_getItem(mItemSlots[i], false);
-        if (item != dItemNo_NONE_e) {
-            if (item == dItemNo_LIGHT_ARROW_e) {
-                // safety check to prevent attempts setting up a light arrow texture
-                item = dItemNo_BOW_e;
-            }
-            s32 i_textureNum =
-                dMeter2Info_readItemTexture(item, mpItemBuf[i][0], NULL, mpItemBuf[i][1], NULL,
-                                            mpItemBuf[i][2], NULL, NULL, NULL, -1);
-            for (int k = 0; k < i_textureNum; k++) {
-                mpItemTex[i][k] = JKR_NEW J2DPicture(mpItemBuf[i][k]);
-                mpItemTex[i][k]->setBasePosition(J2DBasePosition_4);
-            }
-            dMeter2Info_setItemColor(item, mpItemTex[i][0], mpItemTex[i][1], mpItemTex[i][2], NULL);
-            u8 texScale = dItem_data::getTexScale(item);
-            f32 fVar1 = (texScale / 100.0f);
-            f32 fVar2 = (mpItemBuf[i][0]->width / 48.0f);
-            fVar1 = fVar2 * fVar1;
-            mItemSlotParam1[i] = fVar1;
-            mItemSlotParam2[i] = (mpItemBuf[i][0]->height / 48.0f * (texScale / 100.0f));
-        }
-    }
+    repopulate();
     mpScreen->search(MULTI_CHAR('r_btn_n'))->hide();
     mpString = JKR_NEW dMsgString_c();
     for (i = 0; i < 5; i++) {
@@ -386,10 +361,43 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     mpItemExplain = JKR_NEW dMenu_ItemExplain_c(mpHeap, dComIfGp_getRingResArchive(), i_stick, true);
     setRotate();
     mpDrawCursor->setPos(mItemSlotPosX[0] + mCenterPosX, mItemSlotPosY[0] + mCenterPosY);
-    if (dComIfGs_getItem(mItemSlots[0], false) != dItemNo_NONE_e) {
+    if (mItemsTotal > 0) {
         mpDrawCursor->setParam(mItemSlotParam1[0], mItemSlotParam2[0], 0.1f, 0.6f, 0.5f);
     } else {
         mpDrawCursor->setParam(1.0f, 1.0f, 0.1f, 0.6f, 0.5f);
+    }
+}
+
+void dMenu_UpgradeRing_c::repopulate() {
+    const DuskUpgradeCategory* cat = curCat();
+    int n = cat ? (int)cat->node_count : 0;
+    if (n > MAX_ITEM_SLOTS) n = MAX_ITEM_SLOTS;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < 3; j++) {
+            if (mpItemBuf[i][j] == NULL) mpItemBuf[i][j] = (ResTIMG*)mpHeap->alloc(0xC00, 0x20);
+        }
+        const DuskUpgradeNode& node = cat->nodes[i];
+        if (node.icon_kind == 0) {
+            // vanilla: load icon by explicit archive index
+            JKRReadIdxResource(mpItemBuf[i][0], 0xC00, node.icon_index, dComIfGp_getItemIconArchive());
+        } else if (node.icon_bti != NULL && node.icon_bti_len > 0) {
+            // custom .bti bytes supplied by the mod
+            u32 len = node.icon_bti_len <= 0xC00 ? node.icon_bti_len : 0xC00;
+            memcpy(mpItemBuf[i][0], node.icon_bti, len);
+        } else {
+            // no icon available yet (e.g. custom not loaded) -> fall back to vanilla index
+            JKRReadIdxResource(mpItemBuf[i][0], 0xC00, node.icon_index, dComIfGp_getItemIconArchive());
+        }
+        DCStoreRangeNoSync(mpItemBuf[i][0], 0xC00);
+        if (mpItemTex[i][0] == NULL) {
+            mpItemTex[i][0] = JKR_NEW J2DPicture(mpItemBuf[i][0]);
+            mpItemTex[i][0]->setBasePosition(J2DBasePosition_4);
+        }
+        mpItemTex[i][0]->changeTexture((ResTIMG*)mpItemBuf[i][0], 0);
+        mItemSlotParam1[i] = mpItemBuf[i][0]->width  / 48.0f;
+        mItemSlotParam2[i] = mpItemBuf[i][0]->height / 48.0f;
+        mpItemTex[i][1] = NULL;   // upgrade icons are single-layer
+        mpItemTex[i][2] = NULL;
     }
 }
 
@@ -1052,9 +1060,11 @@ void dMenu_UpgradeRing_c::stick_wait_init() {
 }
 
 void dMenu_UpgradeRing_c::stick_wait_proc() {
-    u8 item = dComIfGs_getItem(mItemSlots[mCurrentSlot], false);
+    // A node occupies this slot iff the slot index is within the model's count.
+    bool present = mCurrentSlot < mItemsTotal;
+    u8 item = present ? mCurrentSlot : 0xff;
 
-    if (item != dItemNo_NONE_e) {
+    if (present) {
         setDoStatus(0x24);
     } else {
         setDoStatus(0);
@@ -1102,8 +1112,7 @@ void dMenu_UpgradeRing_c::stick_move_proc() {
             mDirectSelectCursorPos.set(target);
             field_0x66e = field_0x670;
             mpDrawCursor->setPos(mItemSlotPosX[mCurrentSlot], mItemSlotPosY[mCurrentSlot]);
-            u8 item = dComIfGs_getItem(mItemSlots[mCurrentSlot], false);
-            if (item != dItemNo_NONE_e) {
+            if (mCurrentSlot < mItemsTotal) {
                 mpDrawCursor->setParam(mItemSlotParam1[mCurrentSlot], mItemSlotParam2[mCurrentSlot], 0.1f,
                                        0.6f, 0.5f);
             } else {
@@ -1129,8 +1138,7 @@ void dMenu_UpgradeRing_c::stick_move_proc() {
         if (abs(subtract) < 0x80) {
             field_0x66e = field_0x670;
             mpDrawCursor->setPos(mItemSlotPosX[mCurrentSlot], mItemSlotPosY[mCurrentSlot]);
-            u8 item = dComIfGs_getItem(mItemSlots[mCurrentSlot], false);
-            if (item != dItemNo_NONE_e) {
+            if (mCurrentSlot < mItemsTotal) {
                 mpDrawCursor->setParam(mItemSlotParam1[mCurrentSlot], mItemSlotParam2[mCurrentSlot], 0.1f,
                                        0.6f, 0.5f);
             } else {

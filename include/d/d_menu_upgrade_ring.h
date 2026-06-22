@@ -2,6 +2,7 @@
 #define D_MENU_D_MENU_UPGRADE_RING_H
 
 #include "d/d_com_inf_game.h"
+#include "dusk/mod_api.h"
 
 class CPaneMgr;
 class CPaneMgrAlpha;
@@ -22,7 +23,9 @@ public:
         /* 3 */ STATUS_EXPLAIN_FORCE,
     };
 
-    dMenu_UpgradeRing_c(JKRExpHeap*, STControl*, CSTControl*, u8);
+    dMenu_UpgradeRing_c(JKRExpHeap*, STControl*, CSTControl*, u8, const DuskUpgradeRingModel*);
+    void setModel(const DuskUpgradeRingModel* m) { mpModel = m; }
+    void repopulate();
     void _create();
     void _delete();
     void _move();
@@ -70,6 +73,9 @@ public:
     void setStatus(u8 i_status) { mStatus = i_status; }
 
 private:
+    const DuskUpgradeCategory* curCat() const;
+
+    const DuskUpgradeRingModel* mpModel;
     /* 0x004 */ JKRExpHeap* mpHeap;
     /* 0x008 */ STControl* mpStick;
     /* 0x00C */ CSTControl* mpCStick;
