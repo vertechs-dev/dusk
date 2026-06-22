@@ -377,16 +377,21 @@ void dMenu_UpgradeRing_c::repopulate() {
             if (mpItemBuf[i][j] == NULL) mpItemBuf[i][j] = (ResTIMG*)mpHeap->alloc(0xC00, 0x20);
         }
         const DuskUpgradeNode& node = cat->nodes[i];
-        if (node.icon_kind == 0) {
-            // vanilla: load icon by explicit archive index
-            JKRReadIdxResource(mpItemBuf[i][0], 0xC00, node.icon_index, dComIfGp_getItemIconArchive());
-        } else if (node.icon_bti != NULL && node.icon_bti_len > 0) {
+        if (node.icon_kind == 1 && node.icon_bti != NULL && node.icon_bti_len > 0) {
             // custom .bti bytes supplied by the mod
             u32 len = node.icon_bti_len <= 0xC00 ? node.icon_bti_len : 0xC00;
             memcpy(mpItemBuf[i][0], node.icon_bti, len);
         } else {
-            // no icon available yet (e.g. custom not loaded) -> fall back to vanilla index
-            JKRReadIdxResource(mpItemBuf[i][0], 0xC00, node.icon_index, dComIfGp_getItemIconArchive());
+            // Vanilla item icon via the SIZE-AWARE item-texture loader. node.icon_index
+            // is treated as an item number; param_9 = -1 makes readItemTexture resolve
+            // the correct texture index AND size via dItem_data::getTexture. Raw
+            // JKRReadIdxResource(buf, 0xC00, index) is unsafe: a bad/oversized resource
+            // (e.g. index 0) overruns the 0xC00 buffer and yields garbage 12288px
+            // textures -> black backdrop + open stall.
+            // TODO(E1): give each node its real item-icon number; 0 -> Bow placeholder.
+            u8 itemNo = node.icon_index != 0 ? (u8)node.icon_index : (u8)dItemNo_BOW_e;
+            dMeter2Info_readItemTexture(itemNo, mpItemBuf[i][0], NULL, NULL, NULL,
+                                        NULL, NULL, NULL, NULL, -1);
         }
         DCStoreRangeNoSync(mpItemBuf[i][0], 0xC00);
         if (mpItemTex[i][0] == NULL) {
