@@ -401,6 +401,29 @@ void dMenu_UpgradeRing_c::repopulate() {
     }
 }
 
+void dMenu_UpgradeRing_c::reskinForCategory() {
+    // Recompute the slot count for the current category. node_count can differ
+    // between categories, so mirror the ctor's count-setup block (which feeds
+    // setRotate / the cursor stepping) before re-skinning + relaying out.
+    const DuskUpgradeCategory* cat = curCat();
+    u8 n = cat ? (u8)cat->node_count : 0;
+    if (n > MAX_ITEM_SLOTS) n = MAX_ITEM_SLOTS;
+    const bool countChanged = (n != mItemsTotal);
+    mItemsTotal = n;
+    mTotalItemTexToAlloc = n;
+    for (int i = 0; i < n; i++) mItemSlots[i] = (u8)i;
+    // Guard the per-slot angular step against divide-by-zero (matches ctor).
+    field_0x634 = mItemsTotal > 0 ? 0x10000 / mItemsTotal : 0x10000;
+
+    repopulate();   // re-skin icon textures for the new category
+
+    // Refresh the ellipse layout only when the count changed (and is non-zero;
+    // clacEllipsePlotAverage divides by mItemsTotal, so guard against empty).
+    if (countChanged && mItemsTotal > 0) {
+        setRotate();
+    }
+}
+
 dMenu_UpgradeRing_c::~dMenu_UpgradeRing_c() {
     mpHeap->getTotalFreeSize();
     dMeter2Info_setItemExplainWindowStatus(0);

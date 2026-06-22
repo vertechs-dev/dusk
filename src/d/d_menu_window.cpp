@@ -26,6 +26,15 @@
 #include "f_op/f_op_overlap_mng.h"
 #include "m_Do/m_Do_controller_pad.h"
 
+// C7: the mod-facing upgrade ring is owned + driven here. dMw_c holds the heap
+// + stick controls the widget needs, and its _execute()/_draw() are the same
+// reliable per-frame + 2D-draw points the vanilla item ring uses. The widget
+// is constructed lazily inside DuskUpgradeRing_Drive() (on dMw_c's heap) and is
+// driven every frame while open, independent of dMw_c's own item-ring state.
+extern "C" void DuskUpgradeRing_Drive(JKRExpHeap* heap, STControl* stick, CSTControl* cStick);
+extern "C" void DuskUpgradeRing_DoDraw(void);
+extern "C" bool DuskUpgradeRing_IsOpen(void);
+
 class dDlst_MENU_CAPTURE_c : public dDlst_base_c {
 public:
     virtual void draw() {
@@ -1617,11 +1626,28 @@ int dMw_c::_execute() {
         dMw_offButtonBit(2);
     }
 
+    // C7: drive the mod-owned upgrade ring every frame while it's open,
+    // regardless of dMw_c's own menu state. The current heap is mpHeap here
+    // (set above), so the lazy construction inside DuskUpgradeRing_Drive lands
+    // on the same heap dMw_ring_create uses.
+    if (DuskUpgradeRing_IsOpen()) {
+        DuskUpgradeRing_Drive(mpHeap, mpStick, mpCStick);
+    }
+
     mDoExt_setCurrentHeap(prev_heap);
     return 1;
 }
 
 int dMw_c::_draw() {
+    // C7: draw the mod-owned upgrade ring in the same 2D pass the item ring
+    // uses. Driven whenever the ring is open, independent of dMw_c's pause /
+    // windowStatus gating (its lifetime is controlled by the API/mod). The
+    // widget draws directly into the current graf port over a two-pass
+    // mDrawFlag cycle, handled inside DuskUpgradeRing_DoDraw().
+    if (DuskUpgradeRing_IsOpen()) {
+        DuskUpgradeRing_DoDraw();
+    }
+
     if (mpCapture != NULL && mpCapture->checkDraw() && mpCapture->getAlpha() != 0) {
         if (mpCapture->getTopFlag() != 0) {
             dComIfGd_set2DOpaTop(mpCapture);

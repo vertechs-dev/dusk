@@ -26,6 +26,10 @@ public:
     dMenu_UpgradeRing_c(JKRExpHeap*, STControl*, CSTControl*, u8, const DuskUpgradeRingModel*);
     void setModel(const DuskUpgradeRingModel* m) { mpModel = m; }
     void repopulate();
+    // C7: full re-skin for a (possibly changed) current category. Recomputes the
+    // node count, re-skins icons (repopulate), and refreshes the ellipse layout
+    // (setRotate) when the count changed. Used by DuskUpgradeRing_Update().
+    void reskinForCategory();
     void _create();
     void _delete();
     void _move();
