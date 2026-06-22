@@ -38,7 +38,10 @@ static initFunc stick_init[] = {
     /* STATUS_WAIT          */ &dMenu_UpgradeRing_c::stick_wait_init,
     /* STATUS_MOVE          */ &dMenu_UpgradeRing_c::stick_move_init,
     /* STATUS_EXPLAIN       */ &dMenu_UpgradeRing_c::stick_explain_init,
-    /* STATUS_EXPLAIN_FORCE */ &dMenu_UpgradeRing_c::stick_explain_force_init,
+    // STATUS_EXPLAIN_FORCE is never entered on the upgrade ring (bomb-combine
+    // flow removed). Slot kept so the enum still indexes this table; reuse the
+    // plain explain handler as a harmless no-op target.
+    /* STATUS_EXPLAIN_FORCE */ &dMenu_UpgradeRing_c::stick_explain_init,
 };
 
 typedef void (dMenu_UpgradeRing_c::*procFunc)();
@@ -46,7 +49,7 @@ static procFunc stick_proc[] = {
     /* STATUS_WAIT          */ &dMenu_UpgradeRing_c::stick_wait_proc,
     /* STATUS_MOVE          */ &dMenu_UpgradeRing_c::stick_move_proc,
     /* STATUS_EXPLAIN       */ &dMenu_UpgradeRing_c::stick_explain_proc,
-    /* STATUS_EXPLAIN_FORCE */ &dMenu_UpgradeRing_c::stick_explain_force_proc,
+    /* STATUS_EXPLAIN_FORCE */ &dMenu_UpgradeRing_c::stick_explain_proc,
 };
 
 dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick, CSTControl* i_cStick,
@@ -68,18 +71,6 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     };
     static const u64 fc_text1[5] = {
         MULTI_CHAR('fc_text1'), MULTI_CHAR('fc_texs1'), MULTI_CHAR('fc_texs2'), MULTI_CHAR('fc_texs3'), MULTI_CHAR('fc_texs4'),
-    };
-    static const u64 t_on[5] = {
-        MULTI_CHAR('gr_t_on'), MULTI_CHAR('g_tof_s5'), MULTI_CHAR('g_tof_s6'), MULTI_CHAR('g_tof_s7'), MULTI_CHAR('g_tof_s8'),
-    };
-    static const u64 ft_on[5] = {
-        MULTI_CHAR('fr_t_on'), MULTI_CHAR('f_tof_s5'), MULTI_CHAR('f_tof_s6'), MULTI_CHAR('f_tof_s7'), MULTI_CHAR('f_tof_s8'),
-    };
-    static const u64 t_off[5] = {
-        MULTI_CHAR('gr_t_of'), MULTI_CHAR('g_tof_s1'), MULTI_CHAR('g_tof_s2'), MULTI_CHAR('g_tof_s3'), MULTI_CHAR('g_tof_s4'),
-    };
-    static const u64 ft_off[5] = {
-        MULTI_CHAR('fr_t_of'), MULTI_CHAR('f_tof_s1'), MULTI_CHAR('f_tof_s2'), MULTI_CHAR('f_tof_s3'), MULTI_CHAR('f_tof_s4'),
     };
 
     mpHeap = i_heap;
@@ -120,7 +111,6 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     mRingScaleH = 1.0f;
     mRingScaleV = 1.0f;
     mRingAlpha = 1.0f;
-    mPlayerIsWolf = daPy_py_c::checkNowWolf();
     mNameStringID = 0;
     field_0x63a = 0;
     field_0x63c = 0;
@@ -132,13 +122,10 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     mDirectSelectCursorPos.set(0.0f, 0.0f, 0.0f);
     mCurrentSlot = SLOT_0;
     field_0x6a9 = 0;
-    mXButtonSlot = 0xff;
-    mYButtonSlot = 0xff;
     field_0x6ac = 0xff;
     field_0x6ad = 0xff;
     field_0x670 = 0;
     field_0x67e = 0;
-    field_0x6b3 = 0;
     mAlphaRate = 0.0f;
     mDrawFlag = 0;
     mTotalItemTexToAlloc = 0;
@@ -238,12 +225,6 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     }
     for (int i = 0; i < mItemsTotal; i++) {
         mItemSlots[i] = dComIfGs_getLineUpItem(i);
-        if (dComIfGs_getSelectItemIndex(0) == dComIfGs_getLineUpItem(i)) {
-            mXButtonSlot = i;
-        }
-        if (dComIfGs_getSelectItemIndex(1) == dComIfGs_getLineUpItem(i)) {
-            mYButtonSlot = i;
-        }
         if (dComIfGs_getSelectItemIndex(2) == dComIfGs_getWolfAbility(i)) {
             field_0x6ac = i;
         }
@@ -270,11 +251,6 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
         }
         field_0x548[i] = 0.0f;
         field_0x558[i] = 0.0f;
-    }
-    ResTIMG* timg = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource(
-        'TIMG', dMeter2Info_getNumberTextureName(0));
-    for (int i = 0; i < 3; i++) {
-        mpItemNumTex[i] = JKR_NEW J2DPicture(timg);
     }
     mpKanteraMeter = JKR_NEW dKantera_icon_c();
     mpScreen = JKR_NEW J2DScreen();
@@ -320,20 +296,6 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
         }
     }
     mpScreen->search(MULTI_CHAR('r_btn_n'))->hide();
-    if (mPlayerIsWolf) {
-        mpScreen->search(MULTI_CHAR('yx_te_s1'))->hide();
-        mpScreen->search(MULTI_CHAR('yx_te_s2'))->hide();
-        mpScreen->search(MULTI_CHAR('yx_te_s3'))->hide();
-        mpScreen->search(MULTI_CHAR('yx_te_s4'))->hide();
-        mpScreen->search(MULTI_CHAR('yx_text'))->hide();
-        mpScreen->search(MULTI_CHAR('fyx_te_1'))->hide();
-        mpScreen->search(MULTI_CHAR('fyx_te_2'))->hide();
-        mpScreen->search(MULTI_CHAR('fyx_te_3'))->hide();
-        mpScreen->search(MULTI_CHAR('fyx_te_4'))->hide();
-        mpScreen->search(MULTI_CHAR('fyx_tex'))->hide();
-        mpScreen->search(MULTI_CHAR('x_btn_n'))->hide();
-        mpScreen->search(MULTI_CHAR('y_btn_n'))->hide();
-    }
     mpString = JKR_NEW dMsgString_c();
     for (i = 0; i < 5; i++) {
 #if VERSION == VERSION_GCN_JPN
@@ -371,32 +333,8 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
         fc1_TextBox->setString(0x40, "");
         field_0x580[2] = mpString->getString(0x4CD, fc1_TextBox, NULL, NULL, NULL, 0);
     }
-    for (int i = 0; i < 5; i++) {
-#if VERSION == VERSION_GCN_JPN
-        mpComboOffString[i] = (J2DTextBox*)mpScreen->search(t_on[i]);
-        mpScreen->search(ft_on[i])->hide();
-#else
-        mpComboOffString[i] = (J2DTextBox*)mpScreen->search(ft_on[i]);
-        mpScreen->search(t_on[i])->hide();
-#endif
-        mpComboOffString[i]->setString(0x40, "");
-        mpComboOffString[i]->setFont(mDoExt_getMesgFont());
-        mpString->getString(0x4D2, mpComboOffString[i], NULL, NULL, NULL, 0);
-    }
-    for (int i = 0; i < 5; i++) {
-#if VERSION == VERSION_GCN_JPN
-        mpBowArrowComboString[i] = (J2DTextBox*)mpScreen->search(t_off[i]);
-        mpScreen->search(ft_off[i])->hide();
-#else
-        mpBowArrowComboString[i] = (J2DTextBox*)mpScreen->search(ft_off[i]);
-        mpScreen->search(t_off[i])->hide();
-#endif
-        mpBowArrowComboString[i]->setString(0x40, "");
-        mpBowArrowComboString[i]->setFont(mDoExt_getMesgFont());
-        mpString->getString(0x4D3, mpBowArrowComboString[i], NULL, NULL, NULL, 0);
-    }
     mpHeap->getTotalFreeSize();
-    timg = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource('TIMG', "tt_block8x8.bti");
+    ResTIMG* timg = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource('TIMG', "tt_block8x8.bti");
     mpBlackTex = JKR_NEW J2DPicture(timg);
     mpBlackTex->setBlackWhite(JUtility::TColor(0, 0, 0, 0), JUtility::TColor(0, 0, 0, 0xff));
     mpBlackTex->setAlpha(0);
@@ -468,13 +406,6 @@ dMenu_UpgradeRing_c::~dMenu_UpgradeRing_c() {
                 JKR_DELETE(mpSelectItemTex[i][j]);
                 mpSelectItemTex[i][j] = NULL;
             }
-        }
-    }
-
-    for (int i = 0; i < 3; i++) {
-        if (mpItemNumTex[i] != NULL) {
-            JKR_DELETE(mpItemNumTex[i]);
-            mpItemNumTex[i] = NULL;
         }
     }
 
@@ -582,7 +513,6 @@ void dMenu_UpgradeRing_c::_move() {
 
     setScale();
     setActiveCursor();
-    setMixMessage();
     if (mRingCursorScale != g_ringHIO.mCursorScale) {
         mRingCursorScale = g_ringHIO.mCursorScale;
         mpDrawCursor->setScale(g_ringHIO.mCursorScale);
@@ -614,7 +544,7 @@ void dMenu_UpgradeRing_c::_draw() {
             mRingScaleV = g_ringHIO.mRingScaleV;
             mpCircle->scale(mRingScaleH, mRingScaleV);
         }
-        f32 ringAlpha = mPlayerIsWolf != 0 ? g_ringHIO.mRingAlpha_Wolf : g_ringHIO.mRingAlpha;
+        f32 ringAlpha = g_ringHIO.mRingAlpha;
         if (mRingAlpha != ringAlpha) {
             mRingAlpha = ringAlpha;
             mpCircle->setAlphaRate(mRingAlpha);
@@ -961,190 +891,6 @@ void dMenu_UpgradeRing_c::setButtonScale(int i_idx, f32 i_scale) {
     }
 }
 
-void dMenu_UpgradeRing_c::setItem() {
-    u8 uVar1;
-    u8 uVar2;
-    u8 uVar3;
-    u8 uVar4;
-
-    if (mXButtonSlot != dItemNo_NONE_e) {
-        uVar1 = mItemSlots[mXButtonSlot];
-    } else {
-        uVar1 = dItemNo_NONE_e;
-    }
-    if (mYButtonSlot != dItemNo_NONE_e) {
-        uVar2 = mItemSlots[mYButtonSlot];
-    } else {
-        uVar2 = dItemNo_NONE_e;
-    }
-    if (field_0x6ac != dItemNo_NONE_e) {
-        uVar3 = mItemSlots[field_0x6ac];
-    } else {
-        uVar3 = dItemNo_NONE_e;
-    }
-    if (field_0x6ad != dItemNo_NONE_e) {
-        uVar4 = mItemSlots[field_0x6ad];
-    } else {
-        uVar4 = dItemNo_NONE_e;
-    }
-
-    u8 mixItemIndex0 = dComIfGs_getMixItemIndex(0);
-    u8 mixItemIndex1 = dComIfGs_getMixItemIndex(1);
-
-    for (int i = 0; i < 4; i++) {
-        setSelectItemForce(i);
-    }
-
-    checkExplainForce();
-    if (field_0x6b3 == 0) {
-        uVar1 = dComIfGs_getSelectItemIndex(1);
-        if (mItemSlots[mCurrentSlot] == uVar1) {
-            uVar2 = dComIfGs_getSelectItemIndex(0);
-            mixItemIndex1 = dComIfGs_getMixItemIndex(0);
-            if (uVar2 == dItemNo_NONE_e) {
-                mYButtonSlot = dItemNo_NONE_e;
-            } else {
-                mYButtonSlot = mXButtonSlot;
-            }
-            mXButtonSlot = mCurrentSlot;
-            uVar1 = mItemSlots[mXButtonSlot];
-            mixItemIndex0 = dItemNo_NONE_e;
-        } else {
-            if (dComIfGs_getMixItemIndex(1) == mItemSlots[mCurrentSlot]) {
-                uVar2 = dComIfGs_getSelectItemIndex(0);
-                mixItemIndex1 = dItemNo_NONE_e;
-                if (uVar2 == dItemNo_NONE_e) {
-                    mYButtonSlot = dItemNo_NONE_e;
-                } else {
-                    mYButtonSlot = mXButtonSlot;
-                }
-                mXButtonSlot = mCurrentSlot;
-                uVar1 = mItemSlots[mXButtonSlot];
-                mixItemIndex0 = dItemNo_NONE_e;
-            } else {
-                mXButtonSlot = mCurrentSlot;
-                uVar1 = mItemSlots[mXButtonSlot];
-                mixItemIndex0 = dItemNo_NONE_e;
-            }
-        }
-    } else if (field_0x6b3 == 1) {
-        if (mItemSlots[mCurrentSlot] == dComIfGs_getSelectItemIndex(0)) {
-            u8 temp = dComIfGs_getSelectItemIndex(1);
-            uVar1 = temp;
-            mixItemIndex0 = dComIfGs_getMixItemIndex(1);
-            if (temp == dItemNo_NONE_e) {
-                mXButtonSlot = dItemNo_NONE_e;
-            } else {
-                mXButtonSlot = mYButtonSlot;
-            }
-            mYButtonSlot = mCurrentSlot;
-            uVar2 = mItemSlots[mYButtonSlot];
-            mixItemIndex1 = dItemNo_NONE_e;
-        } else {
-            if (dComIfGs_getMixItemIndex(0) == mItemSlots[mCurrentSlot]) {
-                uVar1 = dComIfGs_getSelectItemIndex(1);
-                mixItemIndex0 = dItemNo_NONE_e;
-                if (uVar1 == dItemNo_NONE_e) {
-                    mXButtonSlot = dItemNo_NONE_e;
-                } else {
-                    mXButtonSlot = mYButtonSlot;
-                }
-                mYButtonSlot = mCurrentSlot;
-                uVar2 = mItemSlots[mYButtonSlot];
-                mixItemIndex1 = dItemNo_NONE_e;
-            } else {
-                mYButtonSlot = mCurrentSlot;
-                uVar2 = mItemSlots[mYButtonSlot];
-                mixItemIndex1 = dItemNo_NONE_e;
-            }
-        }
-    }
-    field_0x6b4[0] = uVar1;
-    field_0x6b4[1] = uVar2;
-    field_0x6b4[2] = uVar3;
-    field_0x6b4[3] = uVar4;
-    field_0x6b8[0] = mixItemIndex0;
-    field_0x6b8[1] = mixItemIndex1;
-    field_0x6b8[2] = dItemNo_NONE_e;
-    field_0x6b8[3] = dItemNo_NONE_e;
-    field_0x6cd = dItemNo_NONE_e;
-    setJumpItem(true);
-}
-
-void dMenu_UpgradeRing_c::setJumpItem(bool i_useVibrationM) {
-    for (int i = 0; i < 4; i++) {
-        if (i == 2) {
-            setSelectItem(i, field_0x6b4[i]);
-        } else if (i == field_0x6cd) {
-            setSelectItem(i, getItem(field_0x6cb, 0));
-        } else {
-            setSelectItem(i, getItem(field_0x6b4[i], field_0x6b8[i]));
-        }
-    }
-    if (mXButtonSlot != dItemNo_NONE_e) {
-        field_0x518[0] = mItemSlotPosX[mXButtonSlot];
-        field_0x528[0] = mItemSlotPosY[mXButtonSlot];
-    }
-    if (mYButtonSlot != dItemNo_NONE_e) {
-        field_0x518[1] = mItemSlotPosX[mYButtonSlot];
-        field_0x528[1] = mItemSlotPosY[mYButtonSlot];
-    }
-    if (field_0x6ac != dItemNo_NONE_e) {
-        field_0x518[2] = mItemSlotPosX[field_0x6ac];
-        field_0x528[2] = mItemSlotPosY[field_0x6ac];
-    }
-    if (field_0x6ad != dItemNo_NONE_e) {
-        field_0x518[3] = mItemSlotPosX[field_0x6ad];
-        field_0x528[3] = mItemSlotPosY[field_0x6ad];
-    }
-    if (field_0x6b3 == 0) {
-        field_0x538[0] = g_ringHIO.mSelectItemScale;
-        field_0x538[1] = g_ringHIO.mUnselectItemScale;
-        if (field_0x6b4[0] != dComIfGs_getSelectItemIndex(0) ||
-            field_0x6b8[0] != dComIfGs_getMixItemIndex(0))
-        {
-            field_0x674[0] = 1;
-#if TARGET_PC
-            mSelectItemSlideElapsed[0] = 0.0f;
-#endif
-        }
-    } else if (field_0x6b3 == 1) {
-        field_0x538[0] = g_ringHIO.mUnselectItemScale;
-        field_0x538[1] = g_ringHIO.mSelectItemScale;
-        if (field_0x6b4[1] != dComIfGs_getSelectItemIndex(1) ||
-            field_0x6b8[1] != dComIfGs_getMixItemIndex(1))
-        {
-            field_0x674[1] = 1;
-#if TARGET_PC
-            mSelectItemSlideElapsed[1] = 0.0f;
-#endif
-        }
-    }
-    if (field_0x674[0] == 1) {
-        if (i_useVibrationM) {
-            dMeter2Info_set2DVibrationM();
-        }
-        Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_SET_X, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
-    } else if (field_0x674[1] == 1) {
-        if (i_useVibrationM) {
-            dMeter2Info_set2DVibrationM();
-        }
-        Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_SET_X, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
-    } else if (field_0x674[2] == 1) {
-        if (i_useVibrationM) {
-            dMeter2Info_set2DVibrationM();
-        }
-        Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_SET_X, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
-    } else if (field_0x674[3] == 1) {
-        if (i_useVibrationM) {
-            dMeter2Info_set2DVibrationM();
-        }
-        Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_SET_B, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
-    } else {
-        Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
-    }
-}
-
 void dMenu_UpgradeRing_c::setScale() {
     u32 itemId;
     for (int i = 0; i < mItemsTotal; i++) {
@@ -1213,125 +959,8 @@ void dMenu_UpgradeRing_c::setNameString(u32 i_stringID) {
 }
 
 void dMenu_UpgradeRing_c::setActiveCursor() {
-    u8 item = dComIfGs_getItem(mItemSlots[mCurrentSlot], false);
-    if (mStatus == STATUS_WAIT && mOldStatus != STATUS_EXPLAIN_FORCE && mOldStatus != STATUS_EXPLAIN && mpItemExplain->getStatus() == 0) {
-        if (mDoCPd_c::getTrigR(PAD_1) && !mPlayerIsWolf && item != dItemNo_NONE_e) {
-            for (int i = 0; i < MAX_SELECT_ITEM; i++) {
-                setSelectItemForce(i);
-            }
-            setMixItem();
-        } else if (mDoCPd_c::getTrigX(PAD_1) && !mPlayerIsWolf && item != dItemNo_NONE_e) {
-            for (int i = 0; i < MAX_SELECT_ITEM; i++) {
-                setSelectItemForce(i);
-            }
-            field_0x6b3 = 0;
-            if (!checkCombineBomb(field_0x6b3)) {
-                setItem();
-                if (mpItemExplain->getStatus() == 0) {
-                    setStatus(STATUS_WAIT);
-                    (this->*stick_init[mStatus])();
-                }
-            }
-        } else if (mDoCPd_c::getTrigY(PAD_1) && !mPlayerIsWolf && item != dItemNo_NONE_e) {
-            for (int i = 0; i < MAX_SELECT_ITEM; i++) {
-                setSelectItemForce(i);
-            }
-            field_0x6b3 = 1;
-            if (!checkCombineBomb(field_0x6b3)) {
-                setItem();
-                if (mpItemExplain->getStatus() == 0) {
-                    setStatus(STATUS_WAIT);
-                    (this->*stick_init[mStatus])();
-                }
-            }
-        } else if (mDoCPd_c::getTrigX(PAD_1) || mDoCPd_c::getTrigY(PAD_1)) {
-            // If the player is a wolf or somehow manages to access an item slot with no item, error
-            Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
-        }
-    }
-}
-
-void dMenu_UpgradeRing_c::setMixItem() {
-    u8 item = dComIfGs_getItem(mItemSlots[mCurrentSlot], false);
-    bool bVar1 = false;
-    u8 selectItemIndex0 = dComIfGs_getSelectItemIndex(0);
-    u8 selectItemIndex1 = dComIfGs_getSelectItemIndex(1);
-    u8 local_28[4] = {dItemNo_NONE_e, dItemNo_NONE_e, dItemNo_NONE_e, dItemNo_NONE_e};
-
-    if (dComIfGs_getMixItemIndex(0) == SLOT_4 &&
-        mItemSlots[mCurrentSlot] == dComIfGs_getSelectItemIndex(0))
-    {
-        Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_OFF, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
-        field_0x6cb = selectItemIndex0;
-        selectItemIndex0 = 4;
-        local_28[0] = getCursorPos(4);
-        field_0x6b8[0] = 0xff;
-        field_0x6b3 = 0;
-        field_0x6cd = 0;
-        bVar1 = true;
-    } else if (dComIfGs_getMixItemIndex(1) == 4 &&
-               mItemSlots[mCurrentSlot] == dComIfGs_getSelectItemIndex(1))
-    {
-        Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_OFF, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
-        field_0x6cb = selectItemIndex1;
-        selectItemIndex1 = 4;
-        local_28[1] = getCursorPos(4);
-        field_0x6b8[1] = 0xff;
-        field_0x6b3 = 1;
-        field_0x6cd = 1;
-        bVar1 = true;
-    } else {
-        switch (item) {
-        case dItemNo_NORMAL_BOMB_e:
-        case dItemNo_WATER_BOMB_e:
-        case dItemNo_POKE_BOMB_e:
-        case dItemNo_HAWK_EYE_e:
-            if ((dComIfGs_getSelectItemIndex(0) == 4 && dComIfGs_getMixItemIndex(0) == dItemNo_NONE_e) ||
-                (dComIfGs_getMixItemIndex(0) == 4))
-            {
-                Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_ON, NULL, 0, 0, 1.0f, 1.0f, -1.0f,
-                                         -1.0f, 0);
-                selectItemIndex0 = mItemSlots[mCurrentSlot];
-                field_0x6b8[0] = 4;
-                field_0x6b3 = 0;
-                mXButtonSlot = mCurrentSlot;
-                field_0x6cd = 0xff;
-                bVar1 = true;
-                if (selectItemIndex1 == mItemSlots[mCurrentSlot]) {
-                    selectItemIndex1 = 0xff;
-                    mYButtonSlot = 0xff;
-                }
-            } else if ((dComIfGs_getSelectItemIndex(1) == 4 &&
-                        dComIfGs_getMixItemIndex(1) == dItemNo_NONE_e) ||
-                       (dComIfGs_getMixItemIndex(1) == 4))
-            {
-                Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_ON, NULL, 0, 0, 1.0f, 1.0f, -1.0f,
-                                         -1.0f, 0);
-                selectItemIndex1 = mItemSlots[mCurrentSlot];
-                field_0x6b8[1] = 4;
-                field_0x6b3 = 1;
-                mYButtonSlot = mCurrentSlot;
-                field_0x6cd = 0xff;
-                bVar1 = true;
-                if (selectItemIndex0 == mItemSlots[mCurrentSlot]) {
-                    selectItemIndex0 = 0xff;
-                    mXButtonSlot = 0xff;
-                }
-            }
-            break;
-        }
-    }
-    if (bVar1) {
-        field_0x6b4[0] = selectItemIndex0;
-        field_0x6b4[1] = selectItemIndex1;
-        setJumpItem(false);
-        if (local_28[0] != dItemNo_NONE_e) {
-            mXButtonSlot = local_28[0];
-        }
-        if (local_28[1] != dItemNo_NONE_e) {
-            mYButtonSlot = local_28[1];
-        }
-    }
+    /* Item-assignment (X/Y/R) handling removed for the upgrade ring.
+       Cursor/selection mechanics are driven elsewhere. */
 }
 
 void dMenu_UpgradeRing_c::drawItem() {
@@ -1358,25 +987,13 @@ void dMenu_UpgradeRing_c::drawItem() {
             }
             for (int j = 0; j < 3; j++) {
                 if (mpItemTex[i][j] != NULL) {
-                    if (mPlayerIsWolf) {
-                        mpItemTex[i][j]->setAlpha(g_ringHIO.mItemIconAlpha_Wolf * mAlphaRate);
-                    } else {
-                        mpItemTex[i][j]->setAlpha(g_ringHIO.mItemIconAlpha * mAlphaRate * fVar17);
-                    }
+                    mpItemTex[i][j]->setAlpha(g_ringHIO.mItemIconAlpha * mAlphaRate * fVar17);
                     f32 f0 = mItemSlotParam1[i] * 48.0f;
                     f32 f1 = mItemSlotParam2[i] * 48.0f;
                     f32 x = (48.0f - f0) * 0.5f + (mItemSlotPosX[i] - 24.0f + mCenterPosX);
                     f32 y = (48.0f - f1) * 0.5f + (mItemSlotPosY[i] - 24.0f + mCenterPosY);
                     mpItemTex[i][j]->draw(x, y, f0, f1, 0, 0, 0);
                     u8 item = dComIfGs_getItem(mItemSlots[i], false);
-                    if ((j == 0 && item != dItemNo_BEE_CHILD_e) || (j == 2 && item == dItemNo_BEE_CHILD_e)) {
-                        u8 itemNum = getItemNum(mItemSlots[i]);
-                        u8 itemMaxNum = getItemMaxNum(mItemSlots[i]);
-                        if (itemMaxNum != 0) {
-                            // If it's an ammo-based item, display ammo digits
-                            drawNumber(itemNum, itemMaxNum, x + 24.0f, y + 48.0f);
-                        }
-                    }
                     if (j == 0 && item == dItemNo_KANTERA_e /* Lantern */) {
                         setKanteraPos(x + 24.0f + 15.0f, y + 48.0f + 10.0f);
                         mpKanteraMeter->setScale(0.64f, 0.64f);
@@ -1399,11 +1016,7 @@ void dMenu_UpgradeRing_c::drawItem2() {
 
         for (int i = 0; i < 3; i++) {
             if (mpItemTex[idx][i] != NULL) {
-                if (mPlayerIsWolf != 0) {
-                    mpItemTex[idx][i]->setAlpha(g_ringHIO.mItemIconAlpha_Wolf * mAlphaRate);
-                } else {
-                    mpItemTex[idx][i]->setAlpha(mAlphaRate * 255.0f);
-                }
+                mpItemTex[idx][i]->setAlpha(mAlphaRate * 255.0f);
 
                 f32 f0 = mItemSlotParam1[idx] * 48.0f;
                 f32 f1 = mItemSlotParam2[idx] * 48.0f;
@@ -1411,14 +1024,6 @@ void dMenu_UpgradeRing_c::drawItem2() {
                 f32 y = (48.0f - f1) * 0.5f + (mItemSlotPosY[idx] - 24.0f + mCenterPosY);
                 mpItemTex[idx][i]->draw(x, y, f0, f1, 0, 0, 0);
                 u8 item = dComIfGs_getItem(mItemSlots[idx], false);
-                if ((i == 0 && item != dItemNo_BEE_CHILD_e) || (i == 2 && item == dItemNo_BEE_CHILD_e)) {
-                    u8 itemNum = getItemNum(mItemSlots[idx]);
-                    u8 itemMaxNum = getItemMaxNum(mItemSlots[idx]);
-                    if (itemMaxNum != 0) {
-                        // If it's an ammo-based item, display ammo digits
-                        drawNumber(itemNum, itemMaxNum, x + 24.0f, y + 48.0f);
-                    }
-                }
                 if (i == 0 && item == dItemNo_KANTERA_e) {
                     setKanteraPos(x + 24.0f + 15.0f, y + 48.0f + 10.0f);
                     mpKanteraMeter->setScale(0.64f, 0.64f);
@@ -1546,10 +1151,6 @@ void dMenu_UpgradeRing_c::stick_explain_init() {
     /* empty function */
 }
 
-void dMenu_UpgradeRing_c::stick_explain_force_init() {
-    /* empty function */
-}
-
 void dMenu_UpgradeRing_c::stick_explain_proc() {
     mpItemExplain->move();
     if (mpItemExplain->getStatus() == 0) {
@@ -1559,22 +1160,6 @@ void dMenu_UpgradeRing_c::stick_explain_proc() {
             dMeter2Info_warpInProc();
         }
         dMeter2Info_setItemExplainWindowStatus(0);
-        setStatus(STATUS_WAIT);
-    }
-    f32 alphaRatio = mpItemExplain->getAlphaRatio();
-    mpTextParent[1]->setAlphaRate(alphaRatio);
-    mpBlackTex->setAlpha((1.0f - alphaRatio) * 150.0f);
-}
-
-void dMenu_UpgradeRing_c::stick_explain_force_proc() {
-    mpItemExplain->move();
-    u8 endButton = mpItemExplain->checkEndButton();
-    if (endButton == 1) {
-        setCombineBomb(field_0x6b3);
-    } else if (endButton == 2) {
-        u8 itemMaxNum = getItemMaxNum(mItemSlots[mCurrentSlot]);
-        u8 itemNum = getItemNum(mItemSlots[mCurrentSlot]);
-        mpItemExplain->openExplain(mItemSlots[mCurrentSlot], itemNum, itemMaxNum, true);
         setStatus(STATUS_WAIT);
     }
     f32 alphaRatio = mpItemExplain->getAlphaRatio();
@@ -1767,190 +1352,6 @@ u8 dMenu_UpgradeRing_c::getItemMaxNum(u8 i_slotNo) {
     return ret;
 }
 
-bool dMenu_UpgradeRing_c::checkExplainForce() {
-    u8 local_18[4];
-
-    u8 item0 = dComIfGs_getItem(dComIfGs_getSelectItemIndex(0), false);
-    u8 item1 = dComIfGs_getItem(dComIfGs_getSelectItemIndex(1), false);
-    u8 item2 = dComIfGs_getItem(dComIfGs_getSelectItemIndex(2), false);
-    u8 item3 = dComIfGs_getItem(dComIfGs_getSelectItemIndex(3), false);
-    u8 item = dComIfGs_getItem(mItemSlots[mCurrentSlot], true);
-
-    for (int i = 0; i < 4; i++) {
-        local_18[i] = dItemNo_NONE_e;
-    }
-
-    switch (item) {
-    case dItemNo_BOW_e:
-        switch (item0) {
-        case dItemNo_NORMAL_BOMB_e:
-        case dItemNo_WATER_BOMB_e:
-        case dItemNo_POKE_BOMB_e:
-            local_18[0] = dItemNo_BOMB_ARROW_e;
-            break;
-        case dItemNo_HAWK_EYE_e:
-            local_18[0] = dItemNo_HAWK_ARROW_e;
-            break;
-        }
-        switch (item1) {
-        case dItemNo_NORMAL_BOMB_e:
-        case dItemNo_WATER_BOMB_e:
-        case dItemNo_POKE_BOMB_e:
-            local_18[1] = dItemNo_BOMB_ARROW_e;
-            break;
-        case dItemNo_HAWK_EYE_e:
-            local_18[1] = dItemNo_HAWK_ARROW_e;
-            break;
-        }
-        break;
-    case dItemNo_NORMAL_BOMB_e:
-    case dItemNo_WATER_BOMB_e:
-    case dItemNo_POKE_BOMB_e:
-        if (item0 == dItemNo_BOW_e) {
-            local_18[0] = dItemNo_BOMB_ARROW_e;
-        } else if (item1 == dItemNo_BOW_e) {
-            local_18[1] = dItemNo_BOMB_ARROW_e;
-        }
-        break;
-    case dItemNo_HAWK_EYE_e:
-        if (item0 == dItemNo_BOW_e) {
-            local_18[0] = dItemNo_HAWK_ARROW_e;
-        } else if (item1 == dItemNo_BOW_e) {
-            local_18[1] = dItemNo_HAWK_ARROW_e;
-        }
-        break;
-    case dItemNo_BEE_CHILD_e:
-        if (item0 == dItemNo_FISHING_ROD_1_e) {
-            local_18[0] = dItemNo_BEE_ROD_e;
-        } else if (item1 == dItemNo_FISHING_ROD_1_e) {
-            local_18[1] = dItemNo_BEE_ROD_e;
-        }
-        break;
-    case dItemNo_WORM_e:
-        if (item0 == dItemNo_FISHING_ROD_1_e) {
-            local_18[0] = dItemNo_WORM_ROD_e;
-        } else if (item1 == dItemNo_FISHING_ROD_1_e) {
-            local_18[1] = dItemNo_WORM_ROD_e;
-        }
-        break;
-    case dItemNo_ZORAS_JEWEL_e:
-        if (item0 == dItemNo_FISHING_ROD_1_e) {
-            local_18[0] = dItemNo_JEWEL_ROD_e;
-        } else if (item1 == dItemNo_FISHING_ROD_1_e) {
-            local_18[1] = dItemNo_JEWEL_ROD_e;
-        }
-        break;
-    case dItemNo_FISHING_ROD_1_e:
-        if (item0 == dItemNo_BEE_CHILD_e) {
-            local_18[0] = dItemNo_BEE_ROD_e;
-        } else if (item1 == dItemNo_BEE_CHILD_e) {
-            local_18[1] = dItemNo_BEE_ROD_e;
-        } else if (item0 == dItemNo_ZORAS_JEWEL_e) {
-            local_18[0] = dItemNo_JEWEL_ROD_e;
-        } else if (item1 == dItemNo_ZORAS_JEWEL_e) {
-            local_18[1] = dItemNo_JEWEL_ROD_e;
-        } else if (item0 == dItemNo_WORM_e) {
-            local_18[0] = dItemNo_WORM_ROD_e;
-        } else if (item1 == dItemNo_WORM_e) {
-            local_18[1] = dItemNo_WORM_ROD_e;
-        }
-        break;
-    }
-
-    if (local_18[0] != dItemNo_NONE_e && local_18[1] == dItemNo_NONE_e && local_18[2] == dItemNo_NONE_e && local_18[3] == dItemNo_NONE_e &&
-        dComIfGs_getMixItemIndex(0) == dItemNo_NONE_e)
-    {
-        field_0x6c7[0] = local_18[0];
-        field_0x6c7[1] = dItemNo_NONE_e;
-        field_0x6c7[2] = dItemNo_NONE_e;
-        field_0x6c7[3] = dItemNo_NONE_e;
-    } else if (local_18[0] == dItemNo_NONE_e && local_18[1] != dItemNo_NONE_e && local_18[2] == dItemNo_NONE_e &&
-               local_18[3] == dItemNo_NONE_e && dComIfGs_getMixItemIndex(1) == dItemNo_NONE_e)
-    {
-        field_0x6c7[0] = dItemNo_NONE_e;
-        field_0x6c7[1] = local_18[1];
-        field_0x6c7[2] = dItemNo_NONE_e;
-        field_0x6c7[3] = dItemNo_NONE_e;
-    } else {
-        field_0x6c7[0] = dItemNo_NONE_e;
-        field_0x6c7[1] = dItemNo_NONE_e;
-        field_0x6c7[2] = dItemNo_NONE_e;
-        field_0x6c7[3] = dItemNo_NONE_e;
-    }
-    return 0;
-}
-
-bool dMenu_UpgradeRing_c::checkCombineBomb(int param_0) {
-    return false;
-}
-
-void dMenu_UpgradeRing_c::setCombineBomb(int param_0) {
-    /* empty function */
-}
-
-void dMenu_UpgradeRing_c::drawNumber(int i_itemNum, int i_itemMaxNum, f32 i_posX, f32 i_posY) {
-    if (i_itemNum > 100) {
-        i_itemNum = 100;
-    }
-
-    JUtility::TColor colorBlack;
-    JUtility::TColor colorWhite;
-
-    if (i_itemNum == i_itemMaxNum) {
-        // Full ammo: Golden digits
-        colorBlack.set(30, 30, 30, 0);
-        colorWhite.set(255, 200, 50, 255);
-    } else if (i_itemNum == 0) {
-        // Empty ammo: Gray digits
-        colorBlack.set(30, 30, 30, 0);
-        colorWhite.set(180, 180, 180, 255);
-    } else {
-        // White digits
-        colorBlack.set(0, 0, 0, 0);
-        colorWhite.set(255, 255, 255, 255);
-    }
-    for (int i = 0; i < 3; i++) {
-        mpItemNumTex[i]->setBlackWhite(colorBlack, colorWhite);
-    }
-    if (i_itemNum < 100) {
-        // If player has less than 100 arrows, only display 
-        // the first two digits and hide the last one
-        ResTIMG* texture = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource(
-            'TIMG', dMeter2Info_getNumberTextureName(i_itemNum / 10));
-        mpItemNumTex[0]->changeTexture(texture, 0);
-        texture = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource(
-            'TIMG', dMeter2Info_getNumberTextureName(i_itemNum % 10));
-        mpItemNumTex[1]->changeTexture(texture, 0);
-        mpItemNumTex[2]->hide(); // This function hides the last digit
-    } else {
-        // Player has 100 arrows, display all three digits
-        ResTIMG* texture = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource(
-            'TIMG', dMeter2Info_getNumberTextureName(i_itemNum / 100));
-        mpItemNumTex[0]->changeTexture(texture, 0);
-        i_itemNum = (u8)(i_itemNum % 100);
-        texture = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource(
-            'TIMG', dMeter2Info_getNumberTextureName(i_itemNum / 10));
-        mpItemNumTex[1]->changeTexture(texture, 0);
-        texture = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource(
-            'TIMG', dMeter2Info_getNumberTextureName(i_itemNum % 10));
-        mpItemNumTex[2]->changeTexture(texture, 0);
-        mpItemNumTex[2]->show(); // This function shows the last digit
-    }
-
-    // Gray out the item digits in the item wheel if player is wolf
-    u8 itemIconAlpha =
-        mPlayerIsWolf != 0 ? g_ringHIO.mItemIconAlpha_Wolf : g_ringHIO.mItemIconAlpha;
-
-    for (int i = 0; i < 3; i++) {
-        mpItemNumTex[i]->setAlpha(itemIconAlpha * mAlphaRate);
-
-        // Even though the statement iterates through all digits, 
-        // the last digit wouldn't be visible to the player with  
-        // less than 100 arrows because the hide() function was used 
-        mpItemNumTex[i]->draw(i_posX + i * 16.0f, i_posY - 16.0f, 16.0f, 16.0f, 0, 0, 0);
-    }
-}
-
 u8 dMenu_UpgradeRing_c::getItem(int i_slot_no, u8 i_slot_no2) {
     u8 item = dComIfGs_getItem(i_slot_no, 0);
     dComIfGs_getItem(i_slot_no2, 0);
@@ -1972,77 +1373,6 @@ void dMenu_UpgradeRing_c::setDoStatus(u8 i_doStatus) {
         field_0x68e = 0;
     }
     dComIfGp_setDoStatusForce(mDoStatus, 0);
-}
-
-bool dMenu_UpgradeRing_c::isMixItemOn() {
-    if (!mPlayerIsWolf && dComIfGs_getItem(mItemSlots[mCurrentSlot], false) != dItemNo_NONE_e) {
-        u8 item = dComIfGs_getItem(mItemSlots[mCurrentSlot], false);
-        switch (item) {
-        case dItemNo_HAWK_EYE_e:
-        case dItemNo_NORMAL_BOMB_e:
-        case dItemNo_WATER_BOMB_e:
-        case dItemNo_POKE_BOMB_e:
-            if ((dComIfGs_getSelectItemIndex(0) == SLOT_4) && (dComIfGs_getMixItemIndex(0) == dItemNo_NONE_e) ||
-                (dComIfGs_getMixItemIndex(0) == SLOT_4))
-            {
-                return true;
-            }
-            if ((dComIfGs_getSelectItemIndex(1) == SLOT_4) && (dComIfGs_getMixItemIndex(1) == dItemNo_NONE_e) ||
-                (dComIfGs_getMixItemIndex(1) == SLOT_4))
-            {
-                return true;
-            }
-            break;
-        }
-    }
-    return false;
-}
-
-bool dMenu_UpgradeRing_c::isMixItemOff() {
-    if ((!mPlayerIsWolf) && (dComIfGs_getItem(mItemSlots[mCurrentSlot], 0) != dItemNo_NONE_e)) {
-        if ((dComIfGs_getMixItemIndex(0) == SLOT_4) &&
-            (mItemSlots[mCurrentSlot] == dComIfGs_getSelectItemIndex(0)))
-        {
-            return 1;
-        }
-        if ((dComIfGs_getMixItemIndex(1) == SLOT_4) &&
-            (mItemSlots[mCurrentSlot] == dComIfGs_getSelectItemIndex(1)))
-        {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-void dMenu_UpgradeRing_c::setMixMessage() {
-    if (mpTextParent[4] != NULL) {
-        if (isMixItemOff()) {
-            for (int i = 0; i < 5; i++) {
-                mpComboOffString[i]->hide();
-                mpBowArrowComboString[i]->show();
-            }
-            if (!mpTextParent[4]->isVisible()) {
-                mPikariFlashingSpeed = 18.0f - g_ringHIO.mPikariAnimSpeed;
-                Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_ICON, NULL, 0, 0, 1.0f, 1.0f, -1.0f,
-                                         -1.0f, 0);
-            }
-            mpTextParent[4]->show();
-        } else if (isMixItemOn()) {
-            for (int i = 0; i < 5; i++) {
-                mpComboOffString[i]->show();
-                mpBowArrowComboString[i]->hide();
-            }
-            if (!mpTextParent[4]->isVisible()) {
-                mPikariFlashingSpeed = 18.0f - g_ringHIO.mPikariAnimSpeed;
-                Z2GetAudioMgr()->seStart(Z2SE_SY_ITEM_COMBINE_ICON, NULL, 0, 0, 1.0f, 1.0f, -1.0f,
-                                         -1.0f, 0);
-            }
-            mpTextParent[4]->show();
-        } else {
-            mpTextParent[4]->hide();
-            mPikariFlashingSpeed = 0.0f;
-        }
-    }
 }
 
 void dMenu_UpgradeRing_c::textScaleHIO() {

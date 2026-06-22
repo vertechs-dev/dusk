@@ -36,12 +36,9 @@ public:
     void setRotate();
     void setItemScale(int, f32);
     void setButtonScale(int, f32);
-    void setItem();
-    void setJumpItem(bool);
     void setScale();
     void setNameString(u32);
     void setActiveCursor();
-    void setMixItem();
     void drawItem();
     void drawItem2();
     void stick_wait_init();
@@ -49,24 +46,15 @@ public:
     void stick_move_init();
     void stick_move_proc();
     void stick_explain_init();
-    void stick_explain_force_init();
     void stick_explain_proc();
-    void stick_explain_force_proc();
     void setSelectItem(int, u8);
     void drawSelectItem();
     void setSelectItemForce(int);
     u8 getCursorPos(u8);
     u8 getItemNum(u8);
     u8 getItemMaxNum(u8);
-    bool checkExplainForce();
-    bool checkCombineBomb(int);
-    void setCombineBomb(int);
-    void drawNumber(int, int, f32, f32);
     u8 getItem(int, u8);
     void setDoStatus(u8);
-    bool isMixItemOn();
-    bool isMixItemOff();
-    void setMixMessage();
     void textScaleHIO();
     void textCentering();
     f32 clacEllipseFunction(f32, f32, f32);
@@ -101,12 +89,6 @@ private:
     /* 0x068 */ J2DPicture* mpSelectItemTex[4][3];
     /* 0x098 */ J2DPicture* mpItemTex[MAX_ITEM_SLOTS][3];
     /* 0x1B8 */ J2DPicture* mpBlackTex;
-    /* 0x1BC */ J2DPicture* mpItemNumTex[3];      // Displays digits on ammo-based items. Each index
-                                                  // represents one drawn digit
-    /* 0x1C8 */ J2DTextBox* mpComboOffString[5];  // Displays "Combo Off" combined bow is equipped
-                                                  // and cursor is on combinable item
-    /* 0x1DC */ J2DTextBox* mpBowArrowComboString[5];  // Displays "Bow & Arrow Combo" if bow is
-                                                       // equipped and cursor is on combinable item
     /* 0x1F0 */ ResTIMG* mpSelectItemTexBuf[4][3][2];
     /* 0x250 */ ResTIMG* mpItemBuf[MAX_ITEM_SLOTS][3];
     /* 0x370 */ dMenu_ItemExplain_c* mpItemExplain;
@@ -149,7 +131,6 @@ private:
     /* 0x620 */ f32 mRingScaleV;
     /* 0x624 */ f32 mRingAlpha;   // the alpha depends on if the player is a wolf or a human
     /* 0x628 */ u32 field_0x628;  // unused, not even initialized
-    /* 0x62C */ u32 mPlayerIsWolf;
     /* 0x630 */ u32 mNameStringID;
     /* 0x634 */ s32 field_0x634;
     /* 0x638 */ s16 mOpenCloseFrames;
@@ -170,8 +151,6 @@ private:
     /* 0x690 */ u8 mItemSlots[MAX_ITEM_SLOTS];
     /* 0x6A8 */ u8 mCurrentSlot;
     /* 0x6A9 */ u8 field_0x6a9;  // unused
-    /* 0x6AA */ u8 mXButtonSlot;
-    /* 0x6AB */ u8 mYButtonSlot;
     /* 0x6AC */ u8 field_0x6ac;
     /* 0x6AD */ u8 field_0x6ad;
     /* 0x6AE */ u8 mItemsTotal;  // Contains the amount of items which are actually obtained and in
@@ -181,8 +160,6 @@ private:
     /* 0x6B0 */ u8 mStatus;
     /* 0x6B1 */ u8 mOldStatus;
     /* 0x6B2 */ u8 field_0x6b2;  // used to set status but always zero
-    /* 0x6B3 */ u8 field_0x6b3;  // ends up being useless since checkCombineComb and setCombineBomb
-                                 // are empty functions at least in GCN
     /* 0x6B4 */ u8 field_0x6b4[4];
     /* 0x6B8 */ u8 field_0x6b8[4];
     /* 0x6BC */ u8 mRingOrigin;  // The value decides the origin the item wheel comes from before
