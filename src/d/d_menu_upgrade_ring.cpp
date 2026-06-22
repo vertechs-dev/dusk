@@ -900,19 +900,10 @@ void dMenu_UpgradeRing_c::setButtonScale(int i_idx, f32 i_scale) {
 }
 
 void dMenu_UpgradeRing_c::setScale() {
-    u32 itemId;
     for (int i = 0; i < mItemsTotal; i++) {
         if (field_0x6cf != 0xff) {
-            itemId = 0;
-            switch (field_0x6cf) {
-            case 0:
-                itemId = 0x4DE;
-                break;
-            case 1:
-                itemId = 0x4E0;
-                break;
-            }
-            setNameString(itemId);
+            // Name box now pulls from the selected node (param ignored).
+            setNameString(0);
             setItemScale(i, g_ringHIO.mUnselectItemScale);
             for (int j = 0; j < 2; j++) {
                 if (j == field_0x6cf) {
@@ -923,13 +914,8 @@ void dMenu_UpgradeRing_c::setScale() {
             }
         } else {
             if (i == mCurrentSlot && (mStatus == STATUS_WAIT || mStatus == STATUS_EXPLAIN || mStatus == STATUS_EXPLAIN_FORCE)) {
-                itemId = dComIfGs_getItem(mItemSlots[i], false) + 0x165;
-                if (dMeter2Info_getRentalBombBag() != 0xff &&
-                    mItemSlots[i] == dMeter2Info_getRentalBombBag() + 0xf)
-                {
-                    itemId = 0x16D;
-                }
-                setNameString(itemId);
+                // Refresh the name/cost box for the currently-selected node.
+                setNameString(0);
                 setItemScale(i, g_ringHIO.mSelectItemScale);
             } else {
                 setItemScale(i, g_ringHIO.mUnselectItemScale);
@@ -941,7 +927,44 @@ void dMenu_UpgradeRing_c::setScale() {
     }
 }
 
-void dMenu_UpgradeRing_c::setNameString(u32 i_stringID) {
+void dMenu_UpgradeRing_c::setNameString(u32 /*unused stringId*/) {
+    // Upgrade ring: the center name box shows the selected node's raw name (not
+    // a message-archive item name), and a second pane shows its cost coloured by
+    // state. Pull straight from the model.
+    const DuskUpgradeCategory* cat = curCat();
+    const DuskUpgradeNode* node =
+        (cat != NULL && mCurrentSlot < mItemsTotal) ? &cat->nodes[mCurrentSlot] : NULL;
+
+    const char* name = (node != NULL && node->name != NULL) ? node->name : "";
+    u8 state = (node != NULL) ? node->state : DUSK_UPG_LOCKED;
+    u16 cost = (node != NULL) ? node->cost : 0;
+
+    // Only rewrite the panes when the selection (or its affordability/cost)
+    // actually changes, so we don't churn the text every frame. The old
+    // mNameStringID change-guard is reused as a packed selection signature.
+    u32 sig = ((u32)mCurrentSlot << 24) | ((u32)state << 16) | (u32)cost;
+    if (mNameStringID == sig) {
+        return;
+    }
+    mNameStringID = sig;
+
+    // Build the cost string + tone from the node state.
+    char costBuf[16];
+    JUtility::TColor costColor(0xff, 0xff, 0xff, 0xff);  // normal tone
+    switch (state) {
+    case DUSK_UPG_OWNED:
+        strcpy(costBuf, "Owned");
+        costColor = JUtility::TColor(0x78, 0xff, 0x78, 0xff);  // green tone
+        break;
+    case DUSK_UPG_CANT_AFFORD:
+        snprintf(costBuf, sizeof costBuf, "%u", (unsigned)cost);
+        costColor = JUtility::TColor(0xff, 0x50, 0x50, 0xff);  // red tone
+        break;
+    default:
+        snprintf(costBuf, sizeof costBuf, "%u", (unsigned)cost);
+        break;
+    }
+
     J2DTextBox* textBox[4];
 #if VERSION == VERSION_GCN_JPN
     textBox[0] = (J2DTextBox*)mpCenterScreen->search(MULTI_CHAR('item_n04'));
@@ -954,16 +977,20 @@ void dMenu_UpgradeRing_c::setNameString(u32 i_stringID) {
     textBox[2] = (J2DTextBox*)mpCenterScreen->search(MULTI_CHAR('fitem_n3'));
     textBox[3] = (J2DTextBox*)mpCenterScreen->search(MULTI_CHAR('fitem_n4'));
 #endif
-    if (mNameStringID != i_stringID) {
-        for (int i = 0; i < 4; i++) {
-            if (i_stringID == 0) {
-                strcpy(textBox[i]->getStringPtr(), "");
-            } else {
-                mpString->getString(i_stringID, textBox[i], NULL, NULL, NULL, 0);
-            }
-        }
-        mNameStringID = i_stringID;
+
+    // Pane 0 = node name, pane 1 = cost (repurposed from the C2 trim). The
+    // remaining duplicate name panes are cleared. Exact positions/scale are
+    // still owned by the existing HIO (mRingItemNamePos*/Scale) + textCentering;
+    // pane-1 placement will be nudged at the in-game checkpoint.
+    if (textBox[0] != NULL) textBox[0]->setString(0x40, name);
+    if (textBox[1] != NULL) {
+        textBox[1]->setString(0x40, costBuf);
+        textBox[1]->setFontColor(costColor, costColor);
     }
+    if (textBox[2] != NULL) textBox[2]->setString(0x40, "");
+    if (textBox[3] != NULL) textBox[3]->setString(0x40, "");
+
+    textCentering();
 }
 
 void dMenu_UpgradeRing_c::setActiveCursor() {
