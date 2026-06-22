@@ -43,6 +43,8 @@ typedef struct {
     uint32_t                   category_count;
     uint32_t                   current_category;
     int32_t                    currency;
+    const void* checkmark_bti;       /* shared "owned" overlay .bti bytes, or NULL */
+    uint32_t    checkmark_bti_len;   /* byte length (0 = no overlay)               */
 } DuskUpgradeRingModel;
 
 typedef struct {

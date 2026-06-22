@@ -406,8 +406,18 @@ void dMenu_UpgradeRing_c::repopulate() {
         mpItemTex[i][0]->changeTexture((ResTIMG*)mpItemBuf[i][0], 0);
         mItemSlotParam1[i] = mpItemBuf[i][0]->width  / 48.0f;
         mItemSlotParam2[i] = mpItemBuf[i][0]->height / 48.0f;
-        mpItemTex[i][1] = NULL;   // upgrade icons are single-layer
-        mpItemTex[i][2] = NULL;
+        // Layer 1 = the "owned" checkmark overlay (shared bytes from the model).
+        if (mpItemTex[i][1] != NULL) { JKR_DELETE(mpItemTex[i][1]); mpItemTex[i][1] = NULL; }
+        if (node.state == DUSK_UPG_OWNED &&
+            mpModel != NULL && mpModel->checkmark_bti != NULL && mpModel->checkmark_bti_len > 0) {
+            u32 clen = mpModel->checkmark_bti_len <= 0xC00 ? mpModel->checkmark_bti_len : 0xC00;
+            memcpy(mpItemBuf[i][1], mpModel->checkmark_bti, clen);
+            DCStoreRangeNoSync(mpItemBuf[i][1], 0xC00);
+            mpItemTex[i][1] = JKR_NEW J2DPicture(mpItemBuf[i][1]);
+            mpItemTex[i][1]->setBasePosition(J2DBasePosition_4);
+            mpItemTex[i][1]->changeTexture((ResTIMG*)mpItemBuf[i][1], 0);
+        }
+        mpItemTex[i][2] = NULL;   // upgrade icons are otherwise single-layer
     }
 }
 
