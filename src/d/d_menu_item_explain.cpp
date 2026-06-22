@@ -729,6 +729,48 @@ u8 dMenu_ItemExplain_c::openExplainTx(u32 param_0, u32 param_1) {
     return ret;
 }
 
+u8 dMenu_ItemExplain_c::openExplainText(const char* title, const char* body) {
+    u8 ret = 0;
+    if (mStatus == 0) {
+        // Same open/animation/status setup as openExplainTx: status 1 drives the
+        // slide-in (open_init/open_proc), 0xff suppresses the item icon, and the
+        // counter fields are zeroed so the window is dismissible as usual.
+        mStatus = 1;
+        field_0xe1 = 0xff;
+        field_0xe7 = 0;
+        field_0xde = 0;
+        field_0xdf = 0;
+        open_init();
+        setScale();
+
+        // Write the title/body panes straight from the raw strings instead of
+        // looking them up in the message archive. Mirrors the ctor's pane setup
+        // (setFont + setString(0x40/0x200, ...)).
+        if (title == NULL) title = "";
+        if (body == NULL) body = "";
+        for (int i = 0; i < 4; i++) {
+            J2DTextBox* nameBox = (J2DTextBox*)mpNameText[i]->getPanePtr();
+            nameBox->setFont(mDoExt_getMesgFont());
+            // Title in the first name pane; clear the duplicate name panes.
+            // 0x20 capacity matches the ctor's name-pane setString.
+            nameBox->setString(0x20, i == 0 ? title : "");
+        }
+        J2DTextBox* infoBox = (J2DTextBox*)mpInfoText->getPanePtr();
+        infoBox->setFont(mDoExt_getMesgFont());
+        // Single multi-line body string; the textbox handles wrapping.
+        infoBox->setString(0x200, body);
+
+        // Defeat draw()'s lazy archive re-load: it re-pulls the name/body panes
+        // from the message archive whenever field_0xc8 != field_0xd0. Keep them
+        // equal so our raw strings are never overwritten.
+        field_0xcc = 0;
+        field_0xc8 = 0;
+        field_0xd0 = 0;
+        ret = 1;
+    }
+    return ret;
+}
+
 f32 dMenu_ItemExplain_c::getAlphaRatio() {
     switch (mStatus) {
     case 1:

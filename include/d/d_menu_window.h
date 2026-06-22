@@ -17,6 +17,7 @@ class dMenu_Insect_c;
 class dMenu_Letter_c;
 class dMenu_Option_c;
 class dMenu_Ring_c;
+class dMenu_UpgradeRing_c;
 class dMenu_Skill_c;
 class dMenu_save_c;
 
@@ -150,6 +151,7 @@ public:
     void dMw_capture_create();
     void dMw_capture_delete();
     void dMw_ring_create(u8);
+    void dMw_upgrade_ring_create(const void* model, const void* callbacks);
     bool dMw_ring_delete();
     void dMw_collect_create();
     bool dMw_collect_delete(bool);
@@ -200,6 +202,7 @@ private:
     /* 0x108 */ CSTControl* mpCStick;
     /* 0x10C */ dDlst_MENU_CAPTURE_c* mpCapture;
     /* 0x110 */ dMenu_Ring_c* mpMenuRing;
+    dMenu_UpgradeRing_c* mpUpgradeRing;
     /* 0x114 */ dMenu_Collect_c* mpMenuCollect;
     /* 0x118 */ dMenu_Dmap_c* mpMenuDmap;
     /* 0x11C */ dMenu_Fmap_c* mpMenuFmap;

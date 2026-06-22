@@ -16,6 +16,8 @@
 #include "d/d_menu_window.h"
 
 #include "d/d_camera.h"
+#include "d/d_menu_upgrade_ring.h"
+#include "dusk/mod_api.h"
 #include "d/d_menu_window_HIO.h"
 #include "d/d_meter2.h"
 #include "d/d_meter2_info.h"
@@ -25,6 +27,17 @@
 #include "f_op/f_op_msg_mng.h"
 #include "f_op/f_op_overlap_mng.h"
 #include "m_Do/m_Do_controller_pad.h"
+
+// The mod-facing upgrade ring is driven through dMw_c's real menu state machine
+// (RING_OPEN -> RING_MOVE -> RING_CLOSE) via the parallel member mpUpgradeRing,
+// inheriting the entire correct menu-open lifecycle. The signal layer in
+// d_menu_upgrade_ring_api.cpp only relays open/update/close requests; these
+// engine-side poll/notify functions let dMw_c consume them.
+extern "C" bool DuskUpgradeRing_IsOpen(void);
+extern "C" bool DuskUpgradeRing_PollOpen(const DuskUpgradeRingModel**, const DuskUpgradeRingCallbacks**);
+extern "C" bool DuskUpgradeRing_PollUpdate(const DuskUpgradeRingModel**);
+extern "C" bool DuskUpgradeRing_PollClose(void);
+extern "C" void DuskUpgradeRing_NotifyClosed(void);
 
 class dDlst_MENU_CAPTURE_c : public dDlst_base_c {
 public:
@@ -587,7 +600,20 @@ void dMw_c::key_wait_proc() {
             var_r29 = 0;
         }
 
-        if (dMeter2Info_getPauseStatus() == 8) {
+        const DuskUpgradeRingModel* upgModel = nullptr;
+        const DuskUpgradeRingCallbacks* upgCb = nullptr;
+        if (DuskUpgradeRing_PollOpen(&upgModel, &upgCb)) {
+            // Mod requested the upgrade ring. Open it through the real menu state
+            // machine (RING_OPEN), taking priority over the vanilla item ring.
+            dMsgObject_setKillMessageFlag();
+
+            if (dComIfGp_isHeapLockFlag() == 5) {
+                dMeter2Info_getMeterClass()->emphasisButtonDelete();
+            }
+
+            dMw_upgrade_ring_create(upgModel, upgCb);
+            mMenuProc = RING_OPEN;
+        } else if (dMeter2Info_getPauseStatus() == 8) {
             dMsgObject_setKillMessageFlag();
 
             if (dComIfGp_isHeapLockFlag() == 5) {
@@ -674,20 +700,41 @@ void dMw_c::key_wait_proc() {
 }
 
 void dMw_c::ring_open_proc() {
-    if (mpMenuRing->isOpen()) {
+    if (mpUpgradeRing != NULL) {
+        if (mpUpgradeRing->isOpen()) {
+            mMenuProc = RING_MOVE;
+        }
+    } else if (mpMenuRing->isOpen()) {
         mMenuProc = RING_MOVE;
     }
 }
 
 void dMw_c::ring_move_proc() {
-    mpMenuRing->_move();
-    if (mpMenuRing->isMoveEnd()) {
-        mMenuProc = RING_CLOSE;
+    if (mpUpgradeRing != NULL) {
+        const DuskUpgradeRingModel* m = nullptr;
+        if (DuskUpgradeRing_PollUpdate(&m)) {  // category change / purchase refresh
+            mpUpgradeRing->setModel(m);
+            mpUpgradeRing->reskinForCategory();
+        }
+        mpUpgradeRing->_move();
+        if (DuskUpgradeRing_PollClose() || mpUpgradeRing->isMoveEnd()) {
+            mMenuProc = RING_CLOSE;
+        }
+    } else {
+        mpMenuRing->_move();
+        if (mpMenuRing->isMoveEnd()) {
+            mMenuProc = RING_CLOSE;
+        }
     }
 }
 
 void dMw_c::ring_close_proc() {
-    if (mpMenuRing->isClose()) {
+    if (mpUpgradeRing != NULL) {
+        if (mpUpgradeRing->isClose()) {
+            dMeter2Info_offMenuInForce(2);
+            mMenuProc = NO_MENU;
+        }
+    } else if (mpMenuRing->isClose()) {
         dMeter2Info_offMenuInForce(2);
         mMenuProc = NO_MENU;
     }
@@ -1090,7 +1137,40 @@ void dMw_c::dMw_ring_create(u8 i_origin) {
     mpCapture->setCaptureFlag();
 }
 
+void dMw_c::dMw_upgrade_ring_create(const void* model, const void* callbacks) {
+    markMemSize();
+    dComIfGp_setHeapLockFlag(1);
+
+    mpUpgradeRing = JKR_NEW dMenu_UpgradeRing_c(mpHeap, mpStick, mpCStick, /*origin*/ 2,
+                        (const DuskUpgradeRingModel*)model);
+    JUT_ASSERT(2038, mpUpgradeRing != NULL);
+    mpUpgradeRing->setCallbacks((const DuskUpgradeRingCallbacks*)callbacks);
+    mpUpgradeRing->_create();
+
+    // Fade out the native field HUD while the upgrade wheel is open. The vanilla
+    // item ring keeps the corner item HUD up (it IS the assignment UI), but the
+    // upgrade wheel has no item-assignment meaning, so hide it the same way the
+    // mod's ImGui fallback does (dComIfGp_2dShowOff flips the flag dMeter2_c
+    // reads each frame to fade its elements). Restored in dMw_ring_delete.
+    dComIfGp_2dShowOff();
+
+    if (mpCapture == NULL) {
+        mpCapture = JKR_NEW dDlst_MENU_CAPTURE_c();
+    }
+
+    mpCapture->setCaptureFlag();
+}
+
 bool dMw_c::dMw_ring_delete() {
+    if (mpUpgradeRing != NULL) {
+        mpUpgradeRing->_delete();
+        JKR_DELETE(mpUpgradeRing);
+        mpUpgradeRing = NULL;
+        DuskUpgradeRing_NotifyClosed();
+        // Restore the native field HUD hidden in dMw_upgrade_ring_create.
+        dComIfGp_2dShowOn();
+    }
+
     if (mpMenuRing != NULL) {
         mpMenuRing->_delete();
         JKR_DELETE(mpMenuRing);
@@ -1566,6 +1646,7 @@ int dMw_c::_create() {
 
     mpCapture = NULL;
     mpMenuRing = NULL;
+    mpUpgradeRing = NULL;
     mpMenuCollect = NULL;
     mpMenuDmap = NULL;
     mpMenuFmap = NULL;
@@ -1622,6 +1703,8 @@ int dMw_c::_execute() {
 }
 
 int dMw_c::_draw() {
+    // The framebuffer capture (dimmed, frozen world) is the menu backdrop and
+    // must be ENQUEUED FIRST so it draws behind everything else.
     if (mpCapture != NULL && mpCapture->checkDraw() && mpCapture->getAlpha() != 0) {
         if (mpCapture->getTopFlag() != 0) {
             dComIfGd_set2DOpaTop(mpCapture);
@@ -1667,10 +1750,16 @@ int dMw_c::_draw() {
             if (mpMenuInsect != NULL) {
                 dComIfGd_set2DOpa(mpMenuInsect);
             }
-        } else if (dMeter2Info_getWindowStatus() == 2 && mpMenuRing != NULL) {
-            mpMenuRing->drawFlag0();
-            dComIfGd_set2DOpa(mpMenuRing);
-            dComIfGd_set2DOpa(mpMenuRing);
+        } else if (dMeter2Info_getWindowStatus() == 2) {
+            if (mpUpgradeRing != NULL) {
+                mpUpgradeRing->drawFlag0();
+                dComIfGd_set2DOpa(mpUpgradeRing);
+                dComIfGd_set2DOpa(mpUpgradeRing);
+            } else if (mpMenuRing != NULL) {
+                mpMenuRing->drawFlag0();
+                dComIfGd_set2DOpa(mpMenuRing);
+                dComIfGd_set2DOpa(mpMenuRing);
+            }
         }
     }
     return 1;
