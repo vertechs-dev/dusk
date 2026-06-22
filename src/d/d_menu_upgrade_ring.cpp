@@ -119,7 +119,11 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     mRingScaleH = 1.0f;
     mRingScaleV = 1.0f;
     mRingAlpha = 1.0f;
-    mNameStringID = 0;
+    // Sentinel: the change-guard in setNameString packs (category<<16)|slot, so
+    // the first valid signature is 0 (category 0, slot 0). Initialising to 0
+    // would make the guard early-return on the first open and leave the name
+    // box blank until the selection moved. 0xFFFFFFFF can't equal any real sig.
+    mNameStringID = 0xFFFFFFFFu;
     field_0x63a = 0;
     field_0x63c = 0;
     mOpenCloseFrames = 0;
@@ -271,10 +275,6 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     }
     repopulate();
     mpScreen->search(MULTI_CHAR('r_btn_n'))->hide();
-    {
-        J2DPane* rn = mpScreen->search('r_n');   // right-side equipped-item HUD + button legend
-        if (rn != NULL) rn->hide();
-    }
     mpString = JKR_NEW dMsgString_c();
     for (i = 0; i < 5; i++) {
 #if VERSION == VERSION_GCN_JPN
@@ -287,6 +287,10 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
         fxy_TextBox->setFont(mDoExt_getMesgFont());
         fxy_TextBox->setString(0x40, "");
         field_0x580[0] = mpString->getString(0x380, fxy_TextBox, NULL, NULL, NULL, 0);
+        // Top guide: "Set item" -> "Read info". The (Y)(X) button glyphs are
+        // separate static .blo panes (y_btn_n / x_btn_n) that stay put; only the
+        // text label changes.
+        fxy_TextBox->setString(0x40, "Read info");
     }
     for (i = 0; i < 5; i++) {
 #if VERSION == VERSION_GCN_JPN
@@ -299,6 +303,7 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
         fc_TextBox->setFont(mDoExt_getMesgFont());
         fc_TextBox->setString(0x40, "");
         field_0x580[1] = mpString->getString(0x37F, fc_TextBox, NULL, NULL, NULL, 0);
+        // Middle guide ("Rotate") is left unchanged.
     }
     for (i = 0; i < 5; i++) {
 #if VERSION == VERSION_GCN_JPN
@@ -311,6 +316,23 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
         fc1_TextBox->setFont(mDoExt_getMesgFont());
         fc1_TextBox->setString(0x40, "");
         field_0x580[2] = mpString->getString(0x4CD, fc1_TextBox, NULL, NULL, NULL, 0);
+        // Bottom guide: "Direct select" -> "Purchase (A)". The baked L/+/stick
+        // glyphs for this line are hidden below (no upgrade meaning); the "(A)" is
+        // rendered as text in the guide font.
+        fc1_TextBox->setString(0x40, "Purchase (A)");
+    }
+    // Hide the bottom guide's baked [L] + "+" + stick glyph panes (see pane tree:
+    // l_btn_n = the L button, tasu_00..03 = the "+", cbtn4..7 = the stick disc).
+    {
+        static const u64 hideTags[] = {
+            MULTI_CHAR('l_btn_n'), MULTI_CHAR('cbtn4'),   MULTI_CHAR('cbtn5'),
+            MULTI_CHAR('cbtn6'),   MULTI_CHAR('cbtn7'),   MULTI_CHAR('tasu_00'),
+            MULTI_CHAR('tasu_01'), MULTI_CHAR('tasu_02'), MULTI_CHAR('tasu_03'),
+        };
+        for (unsigned hi = 0; hi < sizeof(hideTags) / sizeof(hideTags[0]); hi++) {
+            J2DPane* pn = mpScreen->search(hideTags[hi]);
+            if (pn != NULL) pn->hide();
+        }
     }
     mpHeap->getTotalFreeSize();
     ResTIMG* timg = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource('TIMG', "tt_block8x8.bti");
@@ -1060,15 +1082,11 @@ void dMenu_UpgradeRing_c::drawItem() {
                     f32 x = (48.0f - f0) * 0.5f + (mItemSlotPosX[i] - 24.0f + mCenterPosX);
                     f32 y = (48.0f - f1) * 0.5f + (mItemSlotPosY[i] - 24.0f + mCenterPosY);
                     mpItemTex[i][j]->draw(x, y, f0, f1, 0, 0, 0);
-                    u8 item = dComIfGs_getItem(mItemSlots[i], false);
-                    if (j == 0 && item == dItemNo_KANTERA_e /* Lantern */) {
-                        setKanteraPos(x + 24.0f + 15.0f, y + 48.0f + 10.0f);
-                        mpKanteraMeter->setScale(0.64f, 0.64f);
-                        mpKanteraMeter->setNowGauge(dComIfGs_getMaxOil(), dComIfGs_getOil());
-                        u8 alpha = mpItemTex[i][j]->getAlpha();
-                        mpKanteraMeter->setAlphaRate(alpha / 255.0f);
-                        mpKanteraMeter->drawSelf();
-                    }
+                    // (No item gauges on upgrade icons. The vanilla item wheel
+                    //  drew the Kantera oil meter here by reading real inventory
+                    //  via dComIfGs_getItem(slot) — for the upgrade ring that
+                    //  leaked the lantern gauge onto whichever node's slot index
+                    //  collided with the lantern's item number.)
                 }
             }
             // Souls cost readout, bottom-right of the icon frame.
@@ -1097,15 +1115,7 @@ void dMenu_UpgradeRing_c::drawItem2() {
                 f32 x = (48.0f - f0) * 0.5f + (mItemSlotPosX[idx] - 24.0f + mCenterPosX);
                 f32 y = (48.0f - f1) * 0.5f + (mItemSlotPosY[idx] - 24.0f + mCenterPosY);
                 mpItemTex[idx][i]->draw(x, y, f0, f1, 0, 0, 0);
-                u8 item = dComIfGs_getItem(mItemSlots[idx], false);
-                if (i == 0 && item == dItemNo_KANTERA_e) {
-                    setKanteraPos(x + 24.0f + 15.0f, y + 48.0f + 10.0f);
-                    mpKanteraMeter->setScale(0.64f, 0.64f);
-                    mpKanteraMeter->setNowGauge(dComIfGs_getMaxOil(), dComIfGs_getOil());
-                    u8 alpha = mpItemTex[idx][i]->getAlpha();
-                    mpKanteraMeter->setAlphaRate(alpha / 255.0f);
-                    mpKanteraMeter->drawSelf();
-                }
+                // (No item gauges on upgrade icons — see drawItem.)
             }
         }
         const DuskUpgradeCategory* cat = curCat();

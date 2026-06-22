@@ -1147,6 +1147,13 @@ void dMw_c::dMw_upgrade_ring_create(const void* model, const void* callbacks) {
     mpUpgradeRing->setCallbacks((const DuskUpgradeRingCallbacks*)callbacks);
     mpUpgradeRing->_create();
 
+    // Fade out the native field HUD while the upgrade wheel is open. The vanilla
+    // item ring keeps the corner item HUD up (it IS the assignment UI), but the
+    // upgrade wheel has no item-assignment meaning, so hide it the same way the
+    // mod's ImGui fallback does (dComIfGp_2dShowOff flips the flag dMeter2_c
+    // reads each frame to fade its elements). Restored in dMw_ring_delete.
+    dComIfGp_2dShowOff();
+
     if (mpCapture == NULL) {
         mpCapture = JKR_NEW dDlst_MENU_CAPTURE_c();
     }
@@ -1160,6 +1167,8 @@ bool dMw_c::dMw_ring_delete() {
         JKR_DELETE(mpUpgradeRing);
         mpUpgradeRing = NULL;
         DuskUpgradeRing_NotifyClosed();
+        // Restore the native field HUD hidden in dMw_upgrade_ring_create.
+        dComIfGp_2dShowOn();
     }
 
     if (mpMenuRing != NULL) {
