@@ -139,6 +139,12 @@ dMeter2Draw_c::dMeter2Draw_c(JKRExpHeap* mp_heap) {
     }
 #endif
 
+    // TP Combat Souls HUD: null these before init() so the destructor's null-guards
+    // are sound even on a partial-init path (initRupeeKey fills them in normally).
+    for (int i = 0; i < 4; i++) mpSoulsDigit[i] = NULL;
+    mpSoulsIcon = NULL;
+    mpSoulsIconBuf = NULL;
+
     init();
     field_0xa8 = 0;
     field_0x1e4 = 0;
@@ -2119,15 +2125,14 @@ void dMeter2Draw_c::drawSoulsCounter(s16 count, f32 x, f32 y) {
     if (count < 0)    count = 0;
     if (count > 9999) count = 9999;
 
-    // One-time icon re-skin when the mod supplies custom .bti bytes.
-    if (s_soulsIconDirty) {
+    // One-time icon re-skin when the mod supplies custom .bti bytes. The dirty
+    // flag is consumed only when a valid payload is actually applied.
+    if (s_soulsIconDirty && s_soulsIconBytes != NULL && s_soulsIconLen > 0) {
         s_soulsIconDirty = false;
-        if (s_soulsIconBytes != NULL && s_soulsIconLen > 0) {
-            u32 len = s_soulsIconLen <= 0xC00 ? s_soulsIconLen : 0xC00;
-            memcpy(mpSoulsIconBuf, s_soulsIconBytes, len);
-            DCStoreRangeNoSync(mpSoulsIconBuf, 0xC00);
-            mpSoulsIcon->changeTexture((ResTIMG*)mpSoulsIconBuf, 0);
-        }
+        u32 len = s_soulsIconLen <= 0xC00 ? s_soulsIconLen : 0xC00;
+        memcpy(mpSoulsIconBuf, s_soulsIconBytes, len);
+        DCStoreRangeNoSync(mpSoulsIconBuf, 0xC00);
+        mpSoulsIcon->changeTexture((ResTIMG*)mpSoulsIconBuf, 0);
     }
 
     u8 a = (u8)(mpLifeParent->getAlphaRate() * 255.0f);   // fade with the HUD

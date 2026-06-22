@@ -188,7 +188,8 @@ private:
     /* 0x2C0 */ CPaneMgr* mpRupeeTexture[4][2];
     /* 0x2E0 */ CPaneMgr* mpKeyParent;
     /* 0x2E4 */ CPaneMgr* mpKeyTexture[5];
-    // TP Combat Souls HUD (4 gold digits + icon; direct J2DPicture draws)
+    // TP Combat Souls HUD (4 gold digits + icon; direct J2DPicture draws).
+    // PC-fork additions — the /* 0xNNN */ offsets below are shifted accordingly.
     J2DPicture* mpSoulsDigit[4];   // 4 digit textures (gold HUD font)
     J2DPicture* mpSoulsIcon;       // currency icon (vanilla seed or custom)
     ResTIMG*    mpSoulsIconBuf;    // 0xC00 buffer behind mpSoulsIcon
