@@ -595,6 +595,25 @@ extern "C" void dMeter2_setMagicMeterOffset(f32 rawX, f32 rawY) {
     s_magicMeterOffY = rawY;
 }
 
+// --- TP Combat: Souls HUD counter (mod-driven, drawn beside the magic meter) ---
+// Same constraint as the magic meter: a mod can't link g_drawHIO or the inline
+// safe-area statics ScaleHUDXLeft touches, so it pushes raw values here and the
+// engine applies the anchor + draws (see drawSoulsCounter / draw()).
+static bool s_soulsEnabled  = false;
+static s16  s_soulsCount    = 0;
+static f32  s_soulsOffX     = 0.0f;
+static f32  s_soulsOffY     = 0.0f;
+static const void* s_soulsIconBytes = NULL;   // custom .bti bytes, or NULL = vanilla seed
+static u32         s_soulsIconLen   = 0;
+static bool        s_soulsIconDirty = false;  // re-skin the icon on next draw
+
+extern "C" void dMeter2_setSoulsEnabled(bool on)            { s_soulsEnabled = on; }
+extern "C" void dMeter2_setSoulsCount(s16 count)            { s_soulsCount = count; }
+extern "C" void dMeter2_setSoulsOffset(f32 rawX, f32 rawY)  { s_soulsOffX = rawX; s_soulsOffY = rawY; }
+extern "C" void dMeter2_setSoulsIcon(const void* bti, u32 len) {
+    s_soulsIconBytes = bti; s_soulsIconLen = len; s_soulsIconDirty = true;
+}
+
 void dMeter2Draw_c::draw() {
     J2DGrafContext* graf_ctx = dComIfGp_getCurrentGrafPort();
     graf_ctx->setup2D();
