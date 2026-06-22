@@ -271,6 +271,10 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     }
     repopulate();
     mpScreen->search(MULTI_CHAR('r_btn_n'))->hide();
+    {
+        J2DPane* rn = mpScreen->search('r_n');   // right-side equipped-item HUD + button legend
+        if (rn != NULL) rn->hide();
+    }
     mpString = JKR_NEW dMsgString_c();
     for (i = 0; i < 5; i++) {
 #if VERSION == VERSION_GCN_JPN
