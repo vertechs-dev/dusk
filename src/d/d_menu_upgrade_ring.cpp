@@ -1156,7 +1156,7 @@ void dMenu_UpgradeRing_c::drawCost(u16 cost, u8 state, f32 x, f32 y) {
     int ones     = (int)(c % 10);
     int digits   = hundreds > 0 ? 3 : (tens > 0 ? 2 : 1);
 
-    int vals[3];
+    int vals[3] = {0, 0, 0};
     if (digits == 3)      { vals[0] = hundreds; vals[1] = tens; vals[2] = ones; }
     else if (digits == 2) { vals[0] = tens;     vals[1] = ones; }
     else                  { vals[0] = ones; }
