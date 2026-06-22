@@ -712,6 +712,15 @@ bool dMenu_UpgradeRing_c::isMoveEnd() {
             Z2GetAudioMgr()->seStart(Z2SE_ITEM_RING_OUT, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
             dMeter2Info_set2DVibrationM();
             ret = 1;
+            // C6: close is committed here (RING_MOVE -> RING_CLOSE). Fire
+            // on_close() exactly once, guarded so repeated isMoveEnd() polls in
+            // the same close don't re-fire it.
+            if (!mCloseCallbackFired) {
+                mCloseCallbackFired = true;
+                if (mpCallbacks && mpCallbacks->on_close) {
+                    mpCallbacks->on_close();
+                }
+            }
         }
     }
     return ret;
@@ -1096,7 +1105,35 @@ void dMenu_UpgradeRing_c::stick_wait_proc() {
     } else {
         setDoStatus(0);
     }
-    if (dMw_A_TRIGGER() && !dMeter2Info_isTouchKeyCheck(0xe) && openExplain(item)) {
+
+    // --- C6 control map ---------------------------------------------------
+    // A = PURCHASE the selected node (only when AVAILABLE), else error buzz.
+    // X/Y = DESCRIBE (open the description window). L/R + d-pad L/R = category
+    // change (fires on_category_change(+/-1) + roll SFX). B / d-pad down/up =
+    // close (handled in isMoveEnd()).
+
+    // A button -> purchase
+    if (dMw_A_TRIGGER() && !dMeter2Info_isTouchKeyCheck(0xe)) {
+        const DuskUpgradeCategory* cat = curCat();
+        if (cat && mCurrentSlot < mItemsTotal) {
+            const DuskUpgradeNode& node = cat->nodes[mCurrentSlot];
+            if (node.state == DUSK_UPG_AVAILABLE && mpCallbacks && mpCallbacks->on_purchase) {
+                mpCallbacks->on_purchase(mpModel->current_category, mCurrentSlot);
+            } else {
+                Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+            }
+        } else {
+            Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+        }
+        return;
+    }
+
+    // X or Y -> describe (open the description window). Open-only here: while
+    // STATUS_EXPLAIN the explain window owns input and closes itself on A/B
+    // (see dMenu_ItemExplain_c::move_proc), so a press of X/Y can't reach this
+    // path again until the window has dismissed.
+    if ((mDoCPd_c::getTrigX(PAD_1) || mDoCPd_c::getTrigY(PAD_1)) &&
+        !dMeter2Info_isTouchKeyCheck(0xe) && openExplain(item)) {
         dMeter2Info_setItemExplainWindowStatus(1);
         field_0x6c4 = mCurrentSlot;
         setStatus(STATUS_EXPLAIN);
@@ -1104,9 +1141,23 @@ void dMenu_UpgradeRing_c::stick_wait_proc() {
         setDoStatus(0);
         return;
     }
-    if (dMw_A_TRIGGER() && !dMeter2Info_isTouchKeyCheck(0xe)) {
-        Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+
+    // L / R triggers and d-pad left/right -> category change.
+    if (mDoCPd_c::getTrigL(PAD_1) || dMw_LEFT_TRIGGER()) {
+        if (mpCallbacks && mpCallbacks->on_category_change) {
+            mpCallbacks->on_category_change(-1);
+        }
+        Z2GetAudioMgr()->seStart(Z2SE_ITEM_RING_ROLL, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+        return;
     }
+    if (mDoCPd_c::getTrigR(PAD_1) || dMw_RIGHT_TRIGGER()) {
+        if (mpCallbacks && mpCallbacks->on_category_change) {
+            mpCallbacks->on_category_change(+1);
+        }
+        Z2GetAudioMgr()->seStart(Z2SE_ITEM_RING_ROLL, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+        return;
+    }
+
     if (mWaitFrames > 0) {
         mWaitFrames--;
     } else if (getStickInfo(mpStick) != 0) {

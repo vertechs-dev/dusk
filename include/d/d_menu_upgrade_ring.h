@@ -72,10 +72,19 @@ public:
     void drawFlag0() { mDrawFlag = 0; }
     void setStatus(u8 i_status) { mStatus = i_status; }
 
+    // C6: the mod supplies these callbacks (purchase / category / close /
+    // select). The fork only fires them; the model swap + repopulate is driven
+    // by the mod through the API. Null until setCallbacks() is called.
+    void setCallbacks(const DuskUpgradeRingCallbacks* cb) { mpCallbacks = cb; }
+
 private:
     const DuskUpgradeCategory* curCat() const;
 
     const DuskUpgradeRingModel* mpModel;
+    const DuskUpgradeRingCallbacks* mpCallbacks = nullptr;
+    // C6: guards on_close() so it fires exactly once when the widget commits to
+    // closing, no matter how many times isMoveEnd() is polled.
+    bool mCloseCallbackFired = false;
     /* 0x004 */ JKRExpHeap* mpHeap;
     /* 0x008 */ STControl* mpStick;
     /* 0x00C */ CSTControl* mpCStick;
