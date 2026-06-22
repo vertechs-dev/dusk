@@ -17,6 +17,7 @@
 #include "d/d_kantera_icon_meter.h"
 #include "d/d_meter_HIO.h"
 #include "d/d_meter2_info.h"
+#include "m_Do/m_Do_graphic.h"   // ScaleHUDXLeft for the mod-facing magic-meter setter
 #include "d/d_msg_class.h"
 #include "d/d_msg_object.h"
 #include "d/d_pane_class.h"
@@ -574,6 +575,16 @@ void dMeter2Draw_c::exec(u32 i_status) {
             mpButtonParent->scale(g_drawHIO.mMainHUDButtonsScale, g_drawHIO.mMainHUDButtonsScale);
         }
     }
+}
+
+// Mod-facing setter for the restored magic meter's HUD position (TP Combat).
+// A mod can't link engine data (g_drawHIO) or the inline safe-area statics that
+// ScaleHUDXLeft touches, but it CAN call an exported engine function — so the mod
+// passes raw offsets and we apply the safe-area anchor here, engine-side. X uses
+// ScaleHUDXLeft so it stays put on ultrawide; Y is a straight vertical offset.
+extern "C" void dMeter2_setMagicMeterOffset(f32 rawX, f32 rawY) {
+    g_drawHIO.mMagicMeterPosX = mDoGph_gInf_c::ScaleHUDXLeft(rawX);
+    g_drawHIO.mMagicMeterPosY = rawY;
 }
 
 void dMeter2Draw_c::draw() {

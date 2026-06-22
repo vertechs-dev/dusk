@@ -1667,7 +1667,13 @@ dMeter_drawHIO_c::dMeter_drawHIO_c() {
     mMagicMeterScale = 0.7f;
     mMagicMeterAlpha = 1.0f;
     mMagicMeterFrameAlpha = 0.55f;
-    mMagicMeterPosX = -42.0f;
+    // Magic meter X/Y anchor. The TP Combat mod overrides g_drawHIO.mMagicMeterPosX/Y
+    // every frame (X = ScaleHUDXLeft(magicHudOffsetX)) so the bar is tunable live
+    // from the Mods tab — this default is only a fallback for when the mod isn't
+    // driving it. 0 = the HUD's left safe-area edge. ScaleHUDXLeft only adds
+    // getSafeMinXF (1:1), so offsets are aspect-ratio independent. (Retail left
+    // this at -42 for the cut/never-shown meter.)
+    mMagicMeterPosX = 0.0f;
     mMagicMeterPosY = 0.0f;
 
     mLanternMeterScale = 0.7f;
