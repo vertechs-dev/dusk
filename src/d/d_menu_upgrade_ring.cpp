@@ -1537,9 +1537,14 @@ bool dMenu_UpgradeRing_c::dpdMove() {
 u8 dMenu_UpgradeRing_c::openExplain(u8 param_0) {
     if (field_0x6cf == 0xff && field_0x6d0 == 0xff) {
         if (param_0 != 0xff) {
-            return mpItemExplain->openExplain(mItemSlots[mCurrentSlot],
-                                              getItemNum(mItemSlots[mCurrentSlot]),
-                                              getItemMaxNum(mItemSlots[mCurrentSlot]), false);
+            // Upgrade ring: the description window shows the selected node's raw
+            // name + description strings, not a message-archive item entry.
+            const DuskUpgradeCategory* cat = curCat();
+            if (cat && mCurrentSlot < mItemsTotal) {
+                const DuskUpgradeNode& node = cat->nodes[mCurrentSlot];
+                return mpItemExplain->openExplainText(node.name, node.description);
+            }
+            return 0;
         }
         return 0;
     }

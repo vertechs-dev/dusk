@@ -36,6 +36,9 @@ public:
     u8 openExplain(u8, u8, u8, bool);
     u8 openExplainDmap(u8, u8, u8, bool, u8);
     u8 openExplainTx(u32, u32);
+    // Upgrade ring: open the description window straight from raw title/body
+    // strings (bypasses the message-archive lookup the item paths use).
+    u8 openExplainText(const char* title, const char* body);
     f32 getAlphaRatio();
     void setNumber();
     u8 getWarpMarkFlag();
