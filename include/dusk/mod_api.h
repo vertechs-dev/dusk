@@ -14,6 +14,44 @@
 typedef void* DuskPanelHandle;
 typedef void* DuskElemHandle;
 
+typedef enum {
+    DUSK_UPG_AVAILABLE   = 0,
+    DUSK_UPG_OWNED       = 1,
+    DUSK_UPG_LOCKED      = 2,
+    DUSK_UPG_CANT_AFFORD = 3,
+} DuskUpgradeState;
+
+typedef struct {
+    const char* name;          /* raw string -> name box                     */
+    const char* description;   /* raw string -> description window           */
+    uint16_t    cost;          /* shown near the name box                    */
+    uint8_t     state;         /* DuskUpgradeState                           */
+    uint8_t     icon_kind;     /* 0 = vanilla archive index, 1 = custom .bti */
+    uint16_t    icon_index;    /* vanilla: index into the item-icon archive  */
+    const void* icon_bti;      /* custom: pointer to .bti (ResTIMG) bytes    */
+    uint32_t    icon_bti_len;  /* custom: byte length                        */
+} DuskUpgradeNode;
+
+typedef struct {
+    const char*            title;
+    const DuskUpgradeNode*  nodes;
+    uint32_t                node_count;
+} DuskUpgradeCategory;
+
+typedef struct {
+    const DuskUpgradeCategory* categories;
+    uint32_t                   category_count;
+    uint32_t                   current_category;
+    int32_t                    currency;
+} DuskUpgradeRingModel;
+
+typedef struct {
+    void (*on_select)(uint32_t category, uint32_t node);
+    void (*on_purchase)(uint32_t category, uint32_t node);
+    void (*on_category_change)(int32_t delta);
+    void (*on_close)(void);
+} DuskUpgradeRingCallbacks;
+
 // Place this once at file scope in your mod to declare the minimum API version required.
 // The loader will refuse to initialize the mod if the engine's API version is older.
 #define DUSK_REQUIRE_API_VERSION                                                                   \
@@ -55,6 +93,11 @@ struct DuskModAPIv1 {
 
     void (*service_publish)(const char* name, void* ptr);
     void* (*service_get)(const char* name);
+
+    bool (*upgrade_ring_open)(const DuskUpgradeRingModel*, const DuskUpgradeRingCallbacks*);
+    void (*upgrade_ring_update)(const DuskUpgradeRingModel*);
+    void (*upgrade_ring_close)(void);
+    bool (*upgrade_ring_is_open)(void);
 };
 
 using DuskModAPI = DuskModAPIv1;

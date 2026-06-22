@@ -188,6 +188,7 @@ set(DOLZEL_FILES
         src/d/d_menu_letter.cpp
         src/d/d_menu_option.cpp
         src/d/d_menu_ring.cpp
+        src/d/d_menu_upgrade_ring_api.cpp
         src/d/d_menu_save.cpp
         src/d/d_menu_skill.cpp
         src/d/d_menu_window_HIO.cpp
