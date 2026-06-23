@@ -13,7 +13,7 @@ namespace {
 
     // Header layout, order: titleSize, marginX, marginY, dotSize, dotStep,
     // rowGap, labelSize, labelGap. Defaults match drawPageHeader's originals.
-    float g_hdr[8] = {24.0f, 16.0f, 24.0f, 14.0f, 18.0f, 46.0f, 18.0f, 6.0f};
+    float g_hdr[8] = {24.0f, 48.0f, 64.0f, 14.0f, 18.0f, 46.0f, 18.0f, 6.0f};
 }
 
 // ---- public API (wired into DuskModAPIv1; called by the mod) ----

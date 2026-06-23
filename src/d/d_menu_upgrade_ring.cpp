@@ -1098,8 +1098,13 @@ void dMenu_UpgradeRing_c::setScale() {
 
 void dMenu_UpgradeRing_c::setNameString(u32 /*unused stringId*/) {
     const DuskUpgradeCategory* cat = curCat();
+    // Bound by the model's node_count, NOT the cached mItemsTotal: on a page
+    // change the model swaps in-place immediately (curCat() is already the new
+    // category) but mItemsTotal isn't re-synced until next frame's reskin. Using
+    // the stale mItemsTotal here indexes the new (possibly empty) nodes array out
+    // of bounds — crashes when switching to an empty page with the cursor > 0.
     const DuskUpgradeNode* node =
-        (cat != NULL && mCurrentSlot < mItemsTotal) ? &cat->nodes[mCurrentSlot] : NULL;
+        (cat != NULL && mCurrentSlot < cat->node_count) ? &cat->nodes[mCurrentSlot] : NULL;
     const char* name = (node != NULL && node->name != NULL) ? node->name : "";
 
     // Refresh only when the selected (category, slot) actually changes, so we
@@ -1351,7 +1356,7 @@ void dMenu_UpgradeRing_c::stick_wait_proc() {
     // A button -> purchase
     if (dMw_A_TRIGGER() && !dMeter2Info_isTouchKeyCheck(0xe)) {
         const DuskUpgradeCategory* cat = curCat();
-        if (cat && mCurrentSlot < mItemsTotal) {
+        if (cat && mCurrentSlot < cat->node_count) {   // node_count, not stale mItemsTotal
             const DuskUpgradeNode& node = cat->nodes[mCurrentSlot];
             if (node.state == DUSK_UPG_AVAILABLE && mpCallbacks && mpCallbacks->on_purchase) {
                 mpCallbacks->on_purchase(mpModel->current_category, mCurrentSlot);
@@ -1827,7 +1832,7 @@ u8 dMenu_UpgradeRing_c::openExplain(u8 param_0) {
             // Upgrade ring: the description window shows the selected node's raw
             // name + description strings, not a message-archive item entry.
             const DuskUpgradeCategory* cat = curCat();
-            if (cat && mCurrentSlot < mItemsTotal) {
+            if (cat && mCurrentSlot < cat->node_count) {   // node_count, not stale mItemsTotal
                 const DuskUpgradeNode& node = cat->nodes[mCurrentSlot];
                 return mpItemExplain->openExplainText(node.name, node.description);
             }
