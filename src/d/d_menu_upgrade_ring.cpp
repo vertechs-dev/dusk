@@ -146,8 +146,6 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     mpDotTex[1] = NULL;
     mpDotBuf[0] = NULL;
     mpDotBuf[1] = NULL;
-    mpLGlyph = NULL;
-    mpRGlyph = NULL;
     mTotalItemTexToAlloc = 0;
     field_0x67c = 4;
     field_0x6c5 = 0;
@@ -342,12 +340,6 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
             if (pn != NULL) pn->hide();
         }
     }
-    // Borrow the L/R shoulder-glyph picture panes from the screen tree so the
-    // pagination header can draw them directly (drawPageHeader). They stay
-    // ->hide()-den above for the screen-tree draw; we draw them by hand instead.
-    // Not owned — mpScreen frees them, so the dtor must not delete them.
-    mpLGlyph = (J2DPicture*)mpScreen->search(MULTI_CHAR('l_btn_n'));
-    mpRGlyph = (J2DPicture*)mpScreen->search(MULTI_CHAR('r_btn_n'));
     mpHeap->getTotalFreeSize();
     ResTIMG* timg = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource('TIMG', "tt_block8x8.bti");
     mpBlackTex = JKR_NEW J2DPicture(timg);
@@ -1242,39 +1234,6 @@ void dMenu_UpgradeRing_c::drawPageHeader() {
             const f32 cy = rowY;
             pic->setAlpha((u8)(mAlphaRate * 255.0f));
             pic->draw(cx - kDotSize * 0.5f, cy - kDotSize * 0.5f, kDotSize, kDotSize, 0, 0, 0);
-        }
-
-        // Flank the dot row with the vanilla L/R shoulder-button glyphs, borrowed
-        // from mpScreen's .blo (mpLGlyph / mpRGlyph). They are drawn directly here
-        // (like drawItem draws an item picture) rather than via the screen tree.
-        // Height is tunable; width preserves each glyph's native aspect ratio so
-        // it is not squished. The left glyph sits a fixed gap left of the leftmost
-        // dot; the right glyph the same gap right of the rightmost dot. Both share
-        // the dots' alpha so they fade with the wheel.
-        static const f32 kGlyphHeight = 18.0f;   // drawn px (height); width follows aspect
-        static const f32 kGlyphGap = 10.0f;      // gap from the nearest dot's center
-        const f32 rightmostCx = leftmostCx + kDotStep * (f32)(dotCount - 1);
-        const u8 glyphAlpha = (u8)(mAlphaRate * 255.0f);
-
-        if (mpLGlyph != NULL && mpLGlyph->getTexture(0) != NULL) {
-            const JUTTexture* tex = mpLGlyph->getTexture(0);
-            const f32 texH = (f32)tex->getHeight();
-            const f32 w = (texH > 0.0f) ? kGlyphHeight * ((f32)tex->getWidth() / texH) : kGlyphHeight;
-            // Right edge sits a gap left of the leftmost dot's center.
-            const f32 x = (leftmostCx - kDotSize * 0.5f - kGlyphGap) - w;
-            const f32 y = rowY - kGlyphHeight * 0.5f;
-            mpLGlyph->setAlpha(glyphAlpha);
-            mpLGlyph->draw(x, y, w, kGlyphHeight, 0, 0, 0);
-        }
-        if (mpRGlyph != NULL && mpRGlyph->getTexture(0) != NULL) {
-            const JUTTexture* tex = mpRGlyph->getTexture(0);
-            const f32 texH = (f32)tex->getHeight();
-            const f32 w = (texH > 0.0f) ? kGlyphHeight * ((f32)tex->getWidth() / texH) : kGlyphHeight;
-            // Left edge sits a gap right of the rightmost dot's center.
-            const f32 x = rightmostCx + kDotSize * 0.5f + kGlyphGap;
-            const f32 y = rowY - kGlyphHeight * 0.5f;
-            mpRGlyph->setAlpha(glyphAlpha);
-            mpRGlyph->draw(x, y, w, kGlyphHeight, 0, 0, 0);
         }
     }
 }

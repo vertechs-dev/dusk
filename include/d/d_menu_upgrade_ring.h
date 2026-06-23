@@ -125,11 +125,6 @@ private:
     // (mirrors the item-icon build in repopulate()), drawn by drawPageHeader().
     J2DPicture* mpDotTex[2];   // [0]=neutral, [1]=highlight
     ResTIMG*    mpDotBuf[2];
-    // L/R shoulder-button glyphs flanking the pagination dot row. Borrowed from
-    // mpScreen's .blo pane tree (l_btn_n / r_btn_n) — NOT owned here, so they
-    // must NOT be deleted in the dtor; mpScreen frees them when it is destroyed.
-    J2DPicture* mpLGlyph;
-    J2DPicture* mpRGlyph;
     /* 0x1F0 */ ResTIMG* mpSelectItemTexBuf[4][3][2];
     /* 0x250 */ ResTIMG* mpItemBuf[MAX_ITEM_SLOTS][3];
     /* 0x370 */ dMenu_ItemExplain_c* mpItemExplain;
