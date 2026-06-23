@@ -142,6 +142,10 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     mAlphaRate = 0.0f;
     mDrawFlag = 0;
     mpPageTitle = NULL;
+    mpDotTex[0] = NULL;
+    mpDotTex[1] = NULL;
+    mpDotBuf[0] = NULL;
+    mpDotBuf[1] = NULL;
     mTotalItemTexToAlloc = 0;
     field_0x67c = 4;
     field_0x6c5 = 0;
@@ -397,6 +401,31 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     mpPageTitle = JKR_NEW J2DTextBox();
     mpPageTitle->setFont(mDoExt_getMesgFont());
     mpPageTitle->setString(0x40, "");
+    // Pagination dots: build two standalone J2DPicture textures from the model's
+    // .bti bytes, mirroring the item-icon build in repopulate(). Index 0 = the
+    // neutral (other-page) dot, index 1 = the highlight (current-page) dot. Each
+    // is skipped (left NULL) when its bytes are absent, so a model without dot
+    // textures simply draws no dots.
+    {
+        const void* dotBytes[2] = {
+            (mpModel != NULL) ? mpModel->dot_neutral_bti : NULL,
+            (mpModel != NULL) ? mpModel->dot_highlight_bti : NULL,
+        };
+        u32 dotLens[2] = {
+            (mpModel != NULL) ? mpModel->dot_neutral_bti_len : 0,
+            (mpModel != NULL) ? mpModel->dot_highlight_bti_len : 0,
+        };
+        for (int i = 0; i < 2; i++) {
+            if (dotBytes[i] == NULL || dotLens[i] == 0) continue;
+            mpDotBuf[i] = (ResTIMG*)mpHeap->alloc(0xC00, 0x20);
+            u32 len = dotLens[i] <= 0xC00 ? dotLens[i] : 0xC00;
+            memcpy(mpDotBuf[i], dotBytes[i], len);
+            DCStoreRangeNoSync(mpDotBuf[i], 0xC00);
+            mpDotTex[i] = JKR_NEW J2DPicture(mpDotBuf[i]);
+            mpDotTex[i]->setBasePosition(J2DBasePosition_4);
+            mpDotTex[i]->changeTexture((ResTIMG*)mpDotBuf[i], 0);
+        }
+    }
     mpDrawCursor = JKR_NEW dSelect_cursor_c(2, g_ringHIO.mCursorScale, dComIfGp_getMain2DArchive());
     mpDrawCursor->setAlphaRate(1.0f);
     mpItemExplain = JKR_NEW dMenu_ItemExplain_c(mpHeap, dComIfGp_getRingResArchive(), i_stick, true);
@@ -558,6 +587,17 @@ dMenu_UpgradeRing_c::~dMenu_UpgradeRing_c() {
 
     JKR_DELETE(mpPageTitle);
     mpPageTitle = NULL;
+
+    for (int i = 0; i < 2; i++) {
+        if (mpDotTex[i] != NULL) {
+            JKR_DELETE(mpDotTex[i]);
+            mpDotTex[i] = NULL;
+        }
+        if (mpDotBuf[i] != NULL) {
+            mpHeap->free(mpDotBuf[i]);
+            mpDotBuf[i] = NULL;
+        }
+    }
 
     for (int i = 0; i < 3; i++) {
         if (mpItemNumTex[i] != NULL) {
@@ -1173,6 +1213,29 @@ void dMenu_UpgradeRing_c::drawPageHeader() {
     // HBIND_RIGHT, so the string's right edge lands at anchorRightX and it grows
     // leftward from the corner. Height arg is unused under VBIND_TOP.
     mpPageTitle->draw(0.0f, anchorTopY, anchorRightX, HBIND_RIGHT);
+
+    // Pagination dot row, one dot per category, beneath the title. The current
+    // category is highlighted; the rest use the neutral dot. The row is anchored
+    // to the title's right edge (anchorRightX) and grows leftward, so it sits
+    // centered under the right-justified title. Exact values get tuned by a human.
+    const int dotCount = (mpModel != NULL) ? (int)mpModel->category_count : 0;
+    if (dotCount > 0) {
+        static const f32 kDotSize = 14.0f;   // drawn px (square)
+        static const f32 kDotStep = 18.0f;   // center-to-center spacing
+        static const f32 kDotRowYOffset = 22.0f;   // below the title's top anchor
+        const f32 rowY = anchorTopY + kDotRowYOffset;
+        // Rightmost dot center sits at anchorRightX; the row grows leftward.
+        const f32 leftmostCx = anchorRightX - kDotStep * (f32)(dotCount - 1);
+        const u32 curCatIdx = (mpModel != NULL) ? mpModel->current_category : 0;
+        for (int i = 0; i < dotCount; i++) {
+            J2DPicture* pic = mpDotTex[((u32)i == curCatIdx) ? 1 : 0];
+            if (pic == NULL) continue;
+            const f32 cx = leftmostCx + kDotStep * (f32)i;
+            const f32 cy = rowY;
+            pic->setAlpha((u8)(mAlphaRate * 255.0f));
+            pic->draw(cx - kDotSize * 0.5f, cy - kDotSize * 0.5f, kDotSize, kDotSize, 0, 0, 0);
+        }
+    }
 }
 
 void dMenu_UpgradeRing_c::drawItem2() {

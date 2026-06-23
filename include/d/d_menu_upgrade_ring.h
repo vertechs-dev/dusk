@@ -120,6 +120,11 @@ private:
     // with the vanilla mesg font, right-justified, and drawn each frame by
     // drawPageHeader() with alpha = mAlphaRate so it fades with the wheel.
     J2DTextBox* mpPageTitle;
+    // Pagination dots drawn beneath the page title, one per category, the current
+    // one highlighted. Built standalone in the ctor from the model's .bti bytes
+    // (mirrors the item-icon build in repopulate()), drawn by drawPageHeader().
+    J2DPicture* mpDotTex[2];   // [0]=neutral, [1]=highlight
+    ResTIMG*    mpDotBuf[2];
     /* 0x1F0 */ ResTIMG* mpSelectItemTexBuf[4][3][2];
     /* 0x250 */ ResTIMG* mpItemBuf[MAX_ITEM_SLOTS][3];
     /* 0x370 */ dMenu_ItemExplain_c* mpItemExplain;
