@@ -28,6 +28,9 @@
 #include "dusk/mod_api.h"
 #include <cstring>
 
+// Live header-layout values, set from the mod (see d_menu_upgrade_ring_api.cpp).
+extern "C" const float* DuskUpgradeRing_GetHeaderLayout(void);
+
 #include <cstdio>
 
 #if TARGET_PC
@@ -133,6 +136,7 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     mWaitFrames = 0;
     mDirectSelectCursorPos.set(0.0f, 0.0f, 0.0f);
     mCurrentSlot = SLOT_0;
+    mLastCategory = (mpModel != NULL) ? mpModel->current_category : 0;
     field_0x6a9 = 0;
     field_0x6ac = 0xff;
     field_0x6ad = 0xff;
@@ -140,6 +144,11 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     field_0x67e = 0;
     mAlphaRate = 0.0f;
     mDrawFlag = 0;
+    mpPageTitle = NULL;
+    mpDotTex[0] = NULL;
+    mpDotTex[1] = NULL;
+    mpDotBuf[0] = NULL;
+    mpDotBuf[1] = NULL;
     mTotalItemTexToAlloc = 0;
     field_0x67c = 4;
     field_0x6c5 = 0;
@@ -387,6 +396,39 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
         textBox[i]->setString(0x40, "");
     }
     textCentering();
+    // Top-right page-title header. Not part of any .blo, so build a standalone
+    // J2DTextBox here: default-construct, then attach the vanilla mesg font the
+    // same way the item-name boxes above do (setFont takes a JUTFont*). Bounds
+    // are nominal; drawPageHeader() positions it each frame via the draw()
+    // overload that takes an explicit anchor + right-binding.
+    mpPageTitle = JKR_NEW J2DTextBox();
+    mpPageTitle->setFont(mDoExt_getMesgFont());
+    mpPageTitle->setString(0x40, "");
+    // Pagination dots: build two standalone J2DPicture textures from the model's
+    // .bti bytes, mirroring the item-icon build in repopulate(). Index 0 = the
+    // neutral (other-page) dot, index 1 = the highlight (current-page) dot. Each
+    // is skipped (left NULL) when its bytes are absent, so a model without dot
+    // textures simply draws no dots.
+    {
+        const void* dotBytes[2] = {
+            (mpModel != NULL) ? mpModel->dot_neutral_bti : NULL,
+            (mpModel != NULL) ? mpModel->dot_highlight_bti : NULL,
+        };
+        u32 dotLens[2] = {
+            (mpModel != NULL) ? mpModel->dot_neutral_bti_len : 0,
+            (mpModel != NULL) ? mpModel->dot_highlight_bti_len : 0,
+        };
+        for (int i = 0; i < 2; i++) {
+            if (dotBytes[i] == NULL || dotLens[i] == 0) continue;
+            mpDotBuf[i] = (ResTIMG*)mpHeap->alloc(0xC00, 0x20);
+            u32 len = dotLens[i] <= 0xC00 ? dotLens[i] : 0xC00;
+            memcpy(mpDotBuf[i], dotBytes[i], len);
+            DCStoreRangeNoSync(mpDotBuf[i], 0xC00);
+            mpDotTex[i] = JKR_NEW J2DPicture(mpDotBuf[i]);
+            mpDotTex[i]->setBasePosition(J2DBasePosition_4);
+            mpDotTex[i]->changeTexture((ResTIMG*)mpDotBuf[i], 0);
+        }
+    }
     mpDrawCursor = JKR_NEW dSelect_cursor_c(2, g_ringHIO.mCursorScale, dComIfGp_getMain2DArchive());
     mpDrawCursor->setAlphaRate(1.0f);
     mpItemExplain = JKR_NEW dMenu_ItemExplain_c(mpHeap, dComIfGp_getRingResArchive(), i_stick, true);
@@ -468,6 +510,33 @@ void dMenu_UpgradeRing_c::reskinForCategory() {
     if (countChanged && mItemsTotal > 0) {
         setRotate();
     }
+
+    // A page (category) switch must snap the cursor back to the top of the ring.
+    // The carried-over slot index can land past the new category's node_count, or
+    // on an unrelated node, leaving the cursor stuck on a stale/empty position.
+    // Detect the switch via current_category: a same-category re-skin (e.g. the
+    // refresh after a purchase) keeps current_category, so the cursor stays put.
+    const u32 curCatIdx = (mpModel != NULL) ? mpModel->current_category : 0;
+    if (curCatIdx != mLastCategory) {
+        mLastCategory = curCatIdx;
+        mCurrentSlot = SLOT_0;
+        mDirectSelectActive = false;
+        if (mItemsTotal > 0) {
+            // Re-seat position, angle, and bracket size on the top slot so a
+            // following stick move animates cleanly from the top instead of
+            // sweeping in from the previous category's slot.
+            field_0x66e = field_0x63e[SLOT_0];
+            field_0x670 = field_0x63e[SLOT_0];
+            mpDrawCursor->setPos(mItemSlotPosX[SLOT_0] + mCenterPosX,
+                                 mItemSlotPosY[SLOT_0] + mCenterPosY);
+            mpDrawCursor->setParam(mItemSlotParam1[SLOT_0], mItemSlotParam2[SLOT_0],
+                                   0.1f, 0.6f, 0.5f);
+        } else {
+            field_0x66e = 0x8000;   // top-of-ring angle even with no nodes
+            field_0x670 = 0x8000;
+            mpDrawCursor->setParam(1.0f, 1.0f, 0.1f, 0.6f, 0.5f);
+        }
+    }
 }
 
 dMenu_UpgradeRing_c::~dMenu_UpgradeRing_c() {
@@ -518,6 +587,20 @@ dMenu_UpgradeRing_c::~dMenu_UpgradeRing_c() {
 
     JKR_DELETE(mpString);
     mpString = NULL;
+
+    JKR_DELETE(mpPageTitle);
+    mpPageTitle = NULL;
+
+    for (int i = 0; i < 2; i++) {
+        if (mpDotTex[i] != NULL) {
+            JKR_DELETE(mpDotTex[i]);
+            mpDotTex[i] = NULL;
+        }
+        if (mpDotBuf[i] != NULL) {
+            mpHeap->free(mpDotBuf[i]);
+            mpDotBuf[i] = NULL;
+        }
+    }
 
     for (int i = 0; i < 3; i++) {
         if (mpItemNumTex[i] != NULL) {
@@ -643,6 +726,7 @@ void dMenu_UpgradeRing_c::_draw() {
             mpTextParent[1]->setAlphaRate(alphaRate * mAlphaRate);
         }
         mpScreen->draw(mCenterPosX, mCenterPosY, grafPort);
+        drawPageHeader();
         if (mStatus != STATUS_EXPLAIN && mPikariFlashingSpeed > 0.0f) {
             Vec pos;
             CPaneMgr paneMgr;
@@ -1014,8 +1098,13 @@ void dMenu_UpgradeRing_c::setScale() {
 
 void dMenu_UpgradeRing_c::setNameString(u32 /*unused stringId*/) {
     const DuskUpgradeCategory* cat = curCat();
+    // Bound by the model's node_count, NOT the cached mItemsTotal: on a page
+    // change the model swaps in-place immediately (curCat() is already the new
+    // category) but mItemsTotal isn't re-synced until next frame's reskin. Using
+    // the stale mItemsTotal here indexes the new (possibly empty) nodes array out
+    // of bounds — crashes when switching to an empty page with the cursor > 0.
     const DuskUpgradeNode* node =
-        (cat != NULL && mCurrentSlot < mItemsTotal) ? &cat->nodes[mCurrentSlot] : NULL;
+        (cat != NULL && mCurrentSlot < cat->node_count) ? &cat->nodes[mCurrentSlot] : NULL;
     const char* name = (node != NULL && node->name != NULL) ? node->name : "";
 
     // Refresh only when the selected (category, slot) actually changes, so we
@@ -1100,7 +1189,77 @@ void dMenu_UpgradeRing_c::drawItem() {
     }
 }
 
+void dMenu_UpgradeRing_c::drawPageHeader() {
+    // Draw the current category's page title in the top-right corner, fading in
+    // and out with the wheel (alpha = mAlphaRate). The textbox is not part of any
+    // .blo, so it is positioned here directly via the current graf context, which
+    // _draw() has already put into 2D mode (grafPort->setup2D()).
+    const DuskUpgradeCategory* cat = curCat();
+    if (cat == NULL || mpPageTitle == NULL) return;
+    const char* title = (cat->title != NULL) ? cat->title : "";
+
+    // Margins from the safe-area corner. Exact values get tuned by a human; these
+    // just put the title roughly in the top-right. Base layout space is
+    // FB_WIDTH_BASE x FB_HEIGHT_BASE (608 x 448).
+    const float* hdr = DuskUpgradeRing_GetHeaderLayout();
+    const f32 kTitleFontSize = hdr[0];
+    const f32 kMarginRight   = hdr[1];
+    const f32 kMarginTop     = hdr[2];
+    const f32 kDotSize       = hdr[3];
+    const f32 kDotStep       = hdr[4];
+    const f32 kDotRowYOffset = hdr[5];
+    const f32 kLabelFontSize = hdr[6];
+    const f32 kLabelGap      = hdr[7];
+
+    // Widescreen-safe top-right anchor: ScaleHUDXRight maps a base-space X to the
+    // right safe edge; getSafeMinYF is the top safe edge.
+    const f32 anchorRightX = mDoGph_gInf_c::ScaleHUDXRight(FB_WIDTH_BASE - kMarginRight);
+    const f32 anchorTopY   = mDoGph_gInf_c::getSafeMinYF() + kMarginTop;
+
+    const int dotCount    = (mpModel != NULL) ? (int)mpModel->category_count : 0;
+    const u32 curCatIdx   = (mpModel != NULL) ? mpModel->current_category : 0;
+
+    // Row geometry: R's right edge sits at the safe anchor; the dots and L lay
+    // out leftward from there, so the whole [L] dots [R] row stays on screen.
+    const f32 rRightEdge  = anchorRightX;
+    const f32 rightmostCx = rRightEdge - kLabelFontSize - kLabelGap - kDotSize * 0.5f;
+    const f32 leftmostCx  = rightmostCx - kDotStep * (f32)(dotCount > 0 ? dotCount - 1 : 0);
+    const f32 dotsCenterX = (leftmostCx + rightmostCx) * 0.5f;
+    const f32 rowY        = anchorTopY + kDotRowYOffset;
+
+    // Title — CENTER-justified over the dot row, so titles of different lengths
+    // stay centered over the dots. HBIND_CENTER centers within [0, width], so a
+    // width of 2*dotsCenterX puts the center at dotsCenterX.
+    mpPageTitle->setString(0x80, title);
+    mpPageTitle->setFontSize(kTitleFontSize, kTitleFontSize);
+    mpPageTitle->setAlpha((u8)(mAlphaRate * 255.0f));
+    mpPageTitle->draw(0.0f, anchorTopY, dotsCenterX * 2.0f, HBIND_CENTER);
+
+    if (dotCount > 0) {
+        for (int i = 0; i < dotCount; i++) {
+            J2DPicture* pic = mpDotTex[((u32)i == curCatIdx) ? 1 : 0];
+            if (pic == NULL) continue;
+            const f32 cx = leftmostCx + kDotStep * (f32)i;
+            pic->setAlpha((u8)(mAlphaRate * 255.0f));
+            pic->draw(cx - kDotSize * 0.5f, rowY - kDotSize * 0.5f, kDotSize, kDotSize, 0, 0, 0);
+        }
+
+        // L / R page-cycle labels (text, title font), vertically centered on the
+        // dot row. Reuses mpPageTitle (the title was already drawn above).
+        const f32 labelY = rowY - kLabelFontSize * 0.5f;
+        mpPageTitle->setFontSize(kLabelFontSize, kLabelFontSize);
+        mpPageTitle->setAlpha((u8)(mAlphaRate * 255.0f));
+        mpPageTitle->setString(0x80, "L");   // right edge just left of the leftmost dot
+        mpPageTitle->draw(0.0f, labelY, leftmostCx - kDotSize * 0.5f - kLabelGap, HBIND_RIGHT);
+        mpPageTitle->setString(0x80, "R");   // right edge at the safe-area anchor
+        mpPageTitle->draw(0.0f, labelY, rRightEdge, HBIND_RIGHT);
+    }
+}
+
 void dMenu_UpgradeRing_c::drawItem2() {
+    // No selected item to enlarge on an empty page; bail before indexing
+    // mItemSlotPosX / mpItemTex with an out-of-range (or stale) current slot.
+    if (mCurrentSlot >= mItemsTotal) return;
     s32 idx = mCurrentSlot;
     if (mStatus == STATUS_WAIT || mStatus == STATUS_EXPLAIN || mStatus == STATUS_EXPLAIN_FORCE) {
         J2DDrawFrame(mItemSlotPosX[idx] - 24.0f + mCenterPosX, mItemSlotPosY[idx] - 24.0f + mCenterPosY,
@@ -1197,7 +1356,7 @@ void dMenu_UpgradeRing_c::stick_wait_proc() {
     // A button -> purchase
     if (dMw_A_TRIGGER() && !dMeter2Info_isTouchKeyCheck(0xe)) {
         const DuskUpgradeCategory* cat = curCat();
-        if (cat && mCurrentSlot < mItemsTotal) {
+        if (cat && mCurrentSlot < cat->node_count) {   // node_count, not stale mItemsTotal
             const DuskUpgradeNode& node = cat->nodes[mCurrentSlot];
             if (node.state == DUSK_UPG_AVAILABLE && mpCallbacks && mpCallbacks->on_purchase) {
                 mpCallbacks->on_purchase(mpModel->current_category, mCurrentSlot);
@@ -1673,7 +1832,7 @@ u8 dMenu_UpgradeRing_c::openExplain(u8 param_0) {
             // Upgrade ring: the description window shows the selected node's raw
             // name + description strings, not a message-archive item entry.
             const DuskUpgradeCategory* cat = curCat();
-            if (cat && mCurrentSlot < mItemsTotal) {
+            if (cat && mCurrentSlot < cat->node_count) {   // node_count, not stale mItemsTotal
                 const DuskUpgradeNode& node = cat->nodes[mCurrentSlot];
                 return mpItemExplain->openExplainText(node.name, node.description);
             }

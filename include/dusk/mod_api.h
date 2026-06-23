@@ -45,6 +45,10 @@ typedef struct {
     int32_t                    currency;
     const void* checkmark_bti;       /* shared "owned" overlay .bti bytes, or NULL */
     uint32_t    checkmark_bti_len;   /* byte length (0 = no overlay)               */
+    const void* dot_highlight_bti;   /* pagination dot for the current page, or NULL */
+    uint32_t    dot_highlight_bti_len;
+    const void* dot_neutral_bti;     /* pagination dot for other pages, or NULL    */
+    uint32_t    dot_neutral_bti_len;
 } DuskUpgradeRingModel;
 
 typedef struct {
