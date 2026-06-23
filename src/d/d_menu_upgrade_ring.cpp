@@ -28,6 +28,9 @@
 #include "dusk/mod_api.h"
 #include <cstring>
 
+// Live header-layout values, set from the mod (see d_menu_upgrade_ring_api.cpp).
+extern "C" const float* DuskUpgradeRing_GetHeaderLayout(void);
+
 #include <cstdio>
 
 #if TARGET_PC
@@ -1193,14 +1196,15 @@ void dMenu_UpgradeRing_c::drawPageHeader() {
     // Margins from the safe-area corner. Exact values get tuned by a human; these
     // just put the title roughly in the top-right. Base layout space is
     // FB_WIDTH_BASE x FB_HEIGHT_BASE (608 x 448).
-    static const f32 kMarginRight   = 16.0f;
-    static const f32 kMarginTop     = 24.0f;
-    static const f32 kTitleFontSize = 24.0f;   // (J2DTextBox default size is 0 -> invisible)
-    static const f32 kDotSize       = 14.0f;   // drawn px (square)
-    static const f32 kDotStep       = 18.0f;   // dot center-to-center spacing
-    static const f32 kDotRowYOffset = 46.0f;   // row baseline below the title's top
-    static const f32 kLabelFontSize = 18.0f;   // L/R label text size
-    static const f32 kLabelGap      = 6.0f;    // gap between an L/R label and the dots
+    const float* hdr = DuskUpgradeRing_GetHeaderLayout();
+    const f32 kTitleFontSize = hdr[0];
+    const f32 kMarginRight   = hdr[1];
+    const f32 kMarginTop     = hdr[2];
+    const f32 kDotSize       = hdr[3];
+    const f32 kDotStep       = hdr[4];
+    const f32 kDotRowYOffset = hdr[5];
+    const f32 kLabelFontSize = hdr[6];
+    const f32 kLabelGap      = hdr[7];
 
     // Widescreen-safe top-right anchor: ScaleHUDXRight maps a base-space X to the
     // right safe edge; getSafeMinYF is the top safe edge.
