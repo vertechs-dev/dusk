@@ -133,6 +133,7 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     mWaitFrames = 0;
     mDirectSelectCursorPos.set(0.0f, 0.0f, 0.0f);
     mCurrentSlot = SLOT_0;
+    mLastCategory = (mpModel != NULL) ? mpModel->current_category : 0;
     field_0x6a9 = 0;
     field_0x6ac = 0xff;
     field_0x6ad = 0xff;
@@ -140,6 +141,7 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     field_0x67e = 0;
     mAlphaRate = 0.0f;
     mDrawFlag = 0;
+    mpPageTitle = NULL;
     mTotalItemTexToAlloc = 0;
     field_0x67c = 4;
     field_0x6c5 = 0;
@@ -387,6 +389,14 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
         textBox[i]->setString(0x40, "");
     }
     textCentering();
+    // Top-right page-title header. Not part of any .blo, so build a standalone
+    // J2DTextBox here: default-construct, then attach the vanilla mesg font the
+    // same way the item-name boxes above do (setFont takes a JUTFont*). Bounds
+    // are nominal; drawPageHeader() positions it each frame via the draw()
+    // overload that takes an explicit anchor + right-binding.
+    mpPageTitle = JKR_NEW J2DTextBox();
+    mpPageTitle->setFont(mDoExt_getMesgFont());
+    mpPageTitle->setString(0x40, "");
     mpDrawCursor = JKR_NEW dSelect_cursor_c(2, g_ringHIO.mCursorScale, dComIfGp_getMain2DArchive());
     mpDrawCursor->setAlphaRate(1.0f);
     mpItemExplain = JKR_NEW dMenu_ItemExplain_c(mpHeap, dComIfGp_getRingResArchive(), i_stick, true);
@@ -468,6 +478,33 @@ void dMenu_UpgradeRing_c::reskinForCategory() {
     if (countChanged && mItemsTotal > 0) {
         setRotate();
     }
+
+    // A page (category) switch must snap the cursor back to the top of the ring.
+    // The carried-over slot index can land past the new category's node_count, or
+    // on an unrelated node, leaving the cursor stuck on a stale/empty position.
+    // Detect the switch via current_category: a same-category re-skin (e.g. the
+    // refresh after a purchase) keeps current_category, so the cursor stays put.
+    const u32 curCatIdx = (mpModel != NULL) ? mpModel->current_category : 0;
+    if (curCatIdx != mLastCategory) {
+        mLastCategory = curCatIdx;
+        mCurrentSlot = SLOT_0;
+        mDirectSelectActive = false;
+        if (mItemsTotal > 0) {
+            // Re-seat position, angle, and bracket size on the top slot so a
+            // following stick move animates cleanly from the top instead of
+            // sweeping in from the previous category's slot.
+            field_0x66e = field_0x63e[SLOT_0];
+            field_0x670 = field_0x63e[SLOT_0];
+            mpDrawCursor->setPos(mItemSlotPosX[SLOT_0] + mCenterPosX,
+                                 mItemSlotPosY[SLOT_0] + mCenterPosY);
+            mpDrawCursor->setParam(mItemSlotParam1[SLOT_0], mItemSlotParam2[SLOT_0],
+                                   0.1f, 0.6f, 0.5f);
+        } else {
+            field_0x66e = 0x8000;   // top-of-ring angle even with no nodes
+            field_0x670 = 0x8000;
+            mpDrawCursor->setParam(1.0f, 1.0f, 0.1f, 0.6f, 0.5f);
+        }
+    }
 }
 
 dMenu_UpgradeRing_c::~dMenu_UpgradeRing_c() {
@@ -518,6 +555,9 @@ dMenu_UpgradeRing_c::~dMenu_UpgradeRing_c() {
 
     JKR_DELETE(mpString);
     mpString = NULL;
+
+    JKR_DELETE(mpPageTitle);
+    mpPageTitle = NULL;
 
     for (int i = 0; i < 3; i++) {
         if (mpItemNumTex[i] != NULL) {
@@ -643,6 +683,7 @@ void dMenu_UpgradeRing_c::_draw() {
             mpTextParent[1]->setAlphaRate(alphaRate * mAlphaRate);
         }
         mpScreen->draw(mCenterPosX, mCenterPosY, grafPort);
+        drawPageHeader();
         if (mStatus != STATUS_EXPLAIN && mPikariFlashingSpeed > 0.0f) {
             Vec pos;
             CPaneMgr paneMgr;
@@ -1098,6 +1139,35 @@ void dMenu_UpgradeRing_c::drawItem() {
             }
         }
     }
+}
+
+void dMenu_UpgradeRing_c::drawPageHeader() {
+    // Draw the current category's page title in the top-right corner, fading in
+    // and out with the wheel (alpha = mAlphaRate). The textbox is not part of any
+    // .blo, so it is positioned here directly via the current graf context, which
+    // _draw() has already put into 2D mode (grafPort->setup2D()).
+    const DuskUpgradeCategory* cat = curCat();
+    if (cat == NULL || mpPageTitle == NULL) return;
+    const char* title = (cat->title != NULL) ? cat->title : "";
+
+    // Margins from the safe-area corner. Exact values get tuned by a human; these
+    // just put the title roughly in the top-right. Base layout space is
+    // FB_WIDTH_BASE x FB_HEIGHT_BASE (608 x 448).
+    static const f32 kMarginRight = 16.0f;
+    static const f32 kMarginTop = 24.0f;
+
+    // Widescreen-safe top-right anchor. ScaleHUDXRight maps a base-space X to the
+    // right safe edge; getSafeMinYF is the top safe edge. anchorRightX is where
+    // the text's right edge should land.
+    const f32 anchorRightX = mDoGph_gInf_c::ScaleHUDXRight(FB_WIDTH_BASE - kMarginRight);
+    const f32 anchorTopY = mDoGph_gInf_c::getSafeMinYF() + kMarginTop;
+
+    mpPageTitle->setString(0x80, title);
+    mpPageTitle->setAlpha((u8)(mAlphaRate * 255.0f));
+    // Right-justified: draw within a box spanning [0 .. anchorRightX] with
+    // HBIND_RIGHT, so the string's right edge lands at anchorRightX and it grows
+    // leftward from the corner. Height arg is unused under VBIND_TOP.
+    mpPageTitle->draw(0.0f, anchorTopY, anchorRightX, HBIND_RIGHT);
 }
 
 void dMenu_UpgradeRing_c::drawItem2() {

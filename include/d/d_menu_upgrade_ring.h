@@ -47,6 +47,7 @@ public:
     void setNameString(u32);
     void setActiveCursor();
     void drawItem();
+    void drawPageHeader();   // top-right page-title header, fades with the wheel
     void drawCost(u16 cost, u8 state, f32 x, f32 y);   // on-icon Souls price
     void drawItem2();
     void stick_wait_init();
@@ -90,6 +91,11 @@ private:
     // C6: guards on_close() so it fires exactly once when the widget commits to
     // closing, no matter how many times isMoveEnd() is polled.
     bool mCloseCallbackFired = false;
+    // Category the cursor was last seated for. reskinForCategory() compares the
+    // model's current_category against this to tell a page switch (snap the
+    // cursor back to the top of the ring) from a same-page re-skin such as a
+    // post-purchase refresh (which must leave the cursor where it is).
+    u32 mLastCategory = 0;
     /* 0x004 */ JKRExpHeap* mpHeap;
     /* 0x008 */ STControl* mpStick;
     /* 0x00C */ CSTControl* mpCStick;
@@ -110,6 +116,10 @@ private:
     /* 0x098 */ J2DPicture* mpItemTex[MAX_ITEM_SLOTS][3];
     /* 0x1B8 */ J2DPicture* mpBlackTex;
     J2DPicture* mpItemNumTex[3];   // up-to-3 cost digits, drawn on each node icon
+    // Top-right page-title header (not in any .blo). Built standalone in the ctor
+    // with the vanilla mesg font, right-justified, and drawn each frame by
+    // drawPageHeader() with alpha = mAlphaRate so it fades with the wheel.
+    J2DTextBox* mpPageTitle;
     /* 0x1F0 */ ResTIMG* mpSelectItemTexBuf[4][3][2];
     /* 0x250 */ ResTIMG* mpItemBuf[MAX_ITEM_SLOTS][3];
     /* 0x370 */ dMenu_ItemExplain_c* mpItemExplain;
