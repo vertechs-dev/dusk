@@ -1193,48 +1193,57 @@ void dMenu_UpgradeRing_c::drawPageHeader() {
     // Margins from the safe-area corner. Exact values get tuned by a human; these
     // just put the title roughly in the top-right. Base layout space is
     // FB_WIDTH_BASE x FB_HEIGHT_BASE (608 x 448).
-    static const f32 kMarginRight = 16.0f;
-    static const f32 kMarginTop = 24.0f;
-    // A default-constructed J2DTextBox has font size 0 (initiate()'s mFont==NULL
-    // branch), and setFont() does NOT restore it — so without this the glyphs
-    // draw at 0px and the title is invisible. Tune alongside the margins.
-    static const f32 kTitleFontSize = 24.0f;
+    static const f32 kMarginRight   = 16.0f;
+    static const f32 kMarginTop     = 24.0f;
+    static const f32 kTitleFontSize = 24.0f;   // (J2DTextBox default size is 0 -> invisible)
+    static const f32 kDotSize       = 14.0f;   // drawn px (square)
+    static const f32 kDotStep       = 18.0f;   // dot center-to-center spacing
+    static const f32 kDotRowYOffset = 46.0f;   // row baseline below the title's top
+    static const f32 kLabelFontSize = 18.0f;   // L/R label text size
+    static const f32 kLabelGap      = 6.0f;    // gap between an L/R label and the dots
 
-    // Widescreen-safe top-right anchor. ScaleHUDXRight maps a base-space X to the
-    // right safe edge; getSafeMinYF is the top safe edge. anchorRightX is where
-    // the text's right edge should land.
+    // Widescreen-safe top-right anchor: ScaleHUDXRight maps a base-space X to the
+    // right safe edge; getSafeMinYF is the top safe edge.
     const f32 anchorRightX = mDoGph_gInf_c::ScaleHUDXRight(FB_WIDTH_BASE - kMarginRight);
-    const f32 anchorTopY = mDoGph_gInf_c::getSafeMinYF() + kMarginTop;
+    const f32 anchorTopY   = mDoGph_gInf_c::getSafeMinYF() + kMarginTop;
 
+    const int dotCount    = (mpModel != NULL) ? (int)mpModel->category_count : 0;
+    const u32 curCatIdx   = (mpModel != NULL) ? mpModel->current_category : 0;
+
+    // Row geometry: R's right edge sits at the safe anchor; the dots and L lay
+    // out leftward from there, so the whole [L] dots [R] row stays on screen.
+    const f32 rRightEdge  = anchorRightX;
+    const f32 rightmostCx = rRightEdge - kLabelFontSize - kLabelGap - kDotSize * 0.5f;
+    const f32 leftmostCx  = rightmostCx - kDotStep * (f32)(dotCount > 0 ? dotCount - 1 : 0);
+    const f32 dotsCenterX = (leftmostCx + rightmostCx) * 0.5f;
+    const f32 rowY        = anchorTopY + kDotRowYOffset;
+
+    // Title — CENTER-justified over the dot row, so titles of different lengths
+    // stay centered over the dots. HBIND_CENTER centers within [0, width], so a
+    // width of 2*dotsCenterX puts the center at dotsCenterX.
     mpPageTitle->setString(0x80, title);
     mpPageTitle->setFontSize(kTitleFontSize, kTitleFontSize);
     mpPageTitle->setAlpha((u8)(mAlphaRate * 255.0f));
-    // Right-justified: draw within a box spanning [0 .. anchorRightX] with
-    // HBIND_RIGHT, so the string's right edge lands at anchorRightX and it grows
-    // leftward from the corner. Height arg is unused under VBIND_TOP.
-    mpPageTitle->draw(0.0f, anchorTopY, anchorRightX, HBIND_RIGHT);
+    mpPageTitle->draw(0.0f, anchorTopY, dotsCenterX * 2.0f, HBIND_CENTER);
 
-    // Pagination dot row, one dot per category, beneath the title. The current
-    // category is highlighted; the rest use the neutral dot. The row is anchored
-    // to the title's right edge (anchorRightX) and grows leftward, so it sits
-    // centered under the right-justified title. Exact values get tuned by a human.
-    const int dotCount = (mpModel != NULL) ? (int)mpModel->category_count : 0;
     if (dotCount > 0) {
-        static const f32 kDotSize = 14.0f;   // drawn px (square)
-        static const f32 kDotStep = 18.0f;   // center-to-center spacing
-        static const f32 kDotRowYOffset = 22.0f;   // below the title's top anchor
-        const f32 rowY = anchorTopY + kDotRowYOffset;
-        // Rightmost dot center sits at anchorRightX; the row grows leftward.
-        const f32 leftmostCx = anchorRightX - kDotStep * (f32)(dotCount - 1);
-        const u32 curCatIdx = (mpModel != NULL) ? mpModel->current_category : 0;
         for (int i = 0; i < dotCount; i++) {
             J2DPicture* pic = mpDotTex[((u32)i == curCatIdx) ? 1 : 0];
             if (pic == NULL) continue;
             const f32 cx = leftmostCx + kDotStep * (f32)i;
-            const f32 cy = rowY;
             pic->setAlpha((u8)(mAlphaRate * 255.0f));
-            pic->draw(cx - kDotSize * 0.5f, cy - kDotSize * 0.5f, kDotSize, kDotSize, 0, 0, 0);
+            pic->draw(cx - kDotSize * 0.5f, rowY - kDotSize * 0.5f, kDotSize, kDotSize, 0, 0, 0);
         }
+
+        // L / R page-cycle labels (text, title font), vertically centered on the
+        // dot row. Reuses mpPageTitle (the title was already drawn above).
+        const f32 labelY = rowY - kLabelFontSize * 0.5f;
+        mpPageTitle->setFontSize(kLabelFontSize, kLabelFontSize);
+        mpPageTitle->setAlpha((u8)(mAlphaRate * 255.0f));
+        mpPageTitle->setString(0x80, "L");   // right edge just left of the leftmost dot
+        mpPageTitle->draw(0.0f, labelY, leftmostCx - kDotSize * 0.5f - kLabelGap, HBIND_RIGHT);
+        mpPageTitle->setString(0x80, "R");   // right edge at the safe-area anchor
+        mpPageTitle->draw(0.0f, labelY, rRightEdge, HBIND_RIGHT);
     }
 }
 
