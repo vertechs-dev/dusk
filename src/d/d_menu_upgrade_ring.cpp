@@ -1155,6 +1155,10 @@ void dMenu_UpgradeRing_c::drawPageHeader() {
     // FB_WIDTH_BASE x FB_HEIGHT_BASE (608 x 448).
     static const f32 kMarginRight = 16.0f;
     static const f32 kMarginTop = 24.0f;
+    // A default-constructed J2DTextBox has font size 0 (initiate()'s mFont==NULL
+    // branch), and setFont() does NOT restore it — so without this the glyphs
+    // draw at 0px and the title is invisible. Tune alongside the margins.
+    static const f32 kTitleFontSize = 24.0f;
 
     // Widescreen-safe top-right anchor. ScaleHUDXRight maps a base-space X to the
     // right safe edge; getSafeMinYF is the top safe edge. anchorRightX is where
@@ -1163,6 +1167,7 @@ void dMenu_UpgradeRing_c::drawPageHeader() {
     const f32 anchorTopY = mDoGph_gInf_c::getSafeMinYF() + kMarginTop;
 
     mpPageTitle->setString(0x80, title);
+    mpPageTitle->setFontSize(kTitleFontSize, kTitleFontSize);
     mpPageTitle->setAlpha((u8)(mAlphaRate * 255.0f));
     // Right-justified: draw within a box spanning [0 .. anchorRightX] with
     // HBIND_RIGHT, so the string's right edge lands at anchorRightX and it grows
@@ -1171,6 +1176,9 @@ void dMenu_UpgradeRing_c::drawPageHeader() {
 }
 
 void dMenu_UpgradeRing_c::drawItem2() {
+    // No selected item to enlarge on an empty page; bail before indexing
+    // mItemSlotPosX / mpItemTex with an out-of-range (or stale) current slot.
+    if (mCurrentSlot >= mItemsTotal) return;
     s32 idx = mCurrentSlot;
     if (mStatus == STATUS_WAIT || mStatus == STATUS_EXPLAIN || mStatus == STATUS_EXPLAIN_FORCE) {
         J2DDrawFrame(mItemSlotPosX[idx] - 24.0f + mCenterPosX, mItemSlotPosY[idx] - 24.0f + mCenterPosY,
