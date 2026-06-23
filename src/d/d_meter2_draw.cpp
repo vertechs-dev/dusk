@@ -608,9 +608,13 @@ extern "C" void dMeter2_setMagicMeterOffset(f32 rawX, f32 rawY) {
     s_magicMeterOffY = rawY;
 }
 
-// --- TP Combat: Souls HUD counter (mod-driven, drawn beside the magic meter) ---
+// Is the mod's upgrade wheel open? (d_menu_upgrade_ring_api.cpp). The Souls
+// counter stays visible while the wheel is open — the player is spending Souls.
+extern "C" bool DuskUpgradeRing_IsOpen(void);
+
+// --- TP Combat: Souls HUD counter (mod-driven, drawn just above the rupee) ---
 // Same constraint as the magic meter: a mod can't link g_drawHIO or the inline
-// safe-area statics ScaleHUDXLeft touches, so it pushes raw values here and the
+// safe-area statics ScaleHUDX* touches, so it pushes raw values here and the
 // engine applies the anchor + draws (see drawSoulsCounter / draw()).
 static bool s_soulsEnabled  = false;
 static s16  s_soulsCount    = 0;
@@ -619,10 +623,24 @@ static f32  s_soulsOffY     = 0.0f;
 static const void* s_soulsIconBytes = NULL;   // custom .bti bytes, or NULL = vanilla seed
 static u32         s_soulsIconLen   = 0;
 static bool        s_soulsIconDirty = false;  // re-skin the icon on next draw
+// Layout (px) — live-tunable from the mod's Mods tab via dMeter2_setSoulsLayout.
+static f32  s_soulsDigit   = 14.0f;  // digit width/height
+static f32  s_soulsStep    = 11.0f;  // horizontal spacing between digits
+static f32  s_soulsIconW   = 16.0f;  // icon width/height
+static f32  s_soulsIconGap = 3.0f;   // gap between last digit and icon
+static f32  s_soulsColR    = 0.10f;  // digit font colour (0..1), default teal
+static f32  s_soulsColG    = 0.70f;
+static f32  s_soulsColB    = 0.75f;
 
 extern "C" void dMeter2_setSoulsEnabled(bool on)            { s_soulsEnabled = on; }
 extern "C" void dMeter2_setSoulsCount(s16 count)            { s_soulsCount = count; }
 extern "C" void dMeter2_setSoulsOffset(f32 rawX, f32 rawY)  { s_soulsOffX = rawX; s_soulsOffY = rawY; }
+extern "C" void dMeter2_setSoulsLayout(f32 digit, f32 step, f32 icon, f32 gap) {
+    s_soulsDigit = digit; s_soulsStep = step; s_soulsIconW = icon; s_soulsIconGap = gap;
+}
+extern "C" void dMeter2_setSoulsColor(f32 r, f32 g, f32 b) {
+    s_soulsColR = r; s_soulsColG = g; s_soulsColB = b;
+}
 extern "C" void dMeter2_setSoulsIcon(const void* bti, u32 len) {
     s_soulsIconBytes = bti; s_soulsIconLen = len; s_soulsIconDirty = true;
 }
@@ -651,11 +669,11 @@ void dMeter2Draw_c::draw() {
         drawKanteraScreen(0);
     }
 
-    // TP Combat Souls HUD: drawn only when the mod enabled it AND the life HUD is
-    // visible, so it fades/hides with the rest of the HUD. Position is the mod's
-    // raw offset run through the safe-area anchor (same as the magic meter).
-    if (s_soulsEnabled && mpLifeParent->getAlphaRate() > 0.0f) {
-        drawSoulsCounter(s_soulsCount, mDoGph_gInf_c::ScaleHUDXLeft(s_soulsOffX), s_soulsOffY);
+    // TP Combat Souls HUD: shown when the mod enabled it AND (the life HUD is
+    // visible OR the upgrade wheel is open) — fades with the HUD in normal play
+    // but stays up while shopping. Right-anchored above the rupee.
+    if (s_soulsEnabled && (mpLifeParent->getAlphaRate() > 0.0f || DuskUpgradeRing_IsOpen())) {
+        drawSoulsCounter(s_soulsCount, mDoGph_gInf_c::ScaleHUDXRight(s_soulsOffX), s_soulsOffY);
     }
 
     drawKanteraScreen(1);
@@ -2142,15 +2160,25 @@ void dMeter2Draw_c::drawSoulsCounter(s16 count, f32 x, f32 y) {
         mpSoulsIcon->changeTexture((ResTIMG*)mpSoulsIconBuf, 0);
     }
 
-    u8 a = (u8)(mpLifeParent->getAlphaRate() * 255.0f);   // fade with the HUD
+    // Fade with the HUD in normal play; full alpha while the wheel is open (the
+    // life HUD is faded out then, but we want the Souls readout fully visible).
+    f32 alphaRate = DuskUpgradeRing_IsOpen() ? 1.0f : mpLifeParent->getAlphaRate();
+    u8 a = (u8)(alphaRate * 255.0f);
 
-    // Starting sizes — tuned in-game later to match the rupee.
-    const f32 DIGIT_W = 24.0f, DIGIT_H = 24.0f, STEP = 20.0f;
-    const f32 ICON_W  = 28.0f, ICON_H  = 28.0f, ICON_GAP = 6.0f;
+    // Size/spacing are live-tunable from the Mods tab (dMeter2_setSoulsLayout).
+    const f32 DIGIT_W = s_soulsDigit, DIGIT_H = s_soulsDigit, STEP = s_soulsStep;
+    const f32 ICON_W  = s_soulsIconW, ICON_H  = s_soulsIconW, ICON_GAP = s_soulsIconGap;
+
+    // Digit font colour (live-tunable): map the grayscale digit texture's white
+    // point to s_soulsCol* so the digits read like the rupee's gold count.
+    JUtility::TColor digitBlack(0, 0, 0, 0);
+    JUtility::TColor digitWhite((u8)(s_soulsColR * 255.0f), (u8)(s_soulsColG * 255.0f),
+                                (u8)(s_soulsColB * 255.0f), 255);
 
     int digits[4] = { count / 1000, (count / 100) % 10, (count / 10) % 10, count % 10 };
     for (int i = 0; i < 4; i++) {
         mpSoulsDigit[i]->changeTexture(getNumberTexture(digits[i]), 0);
+        mpSoulsDigit[i]->setBlackWhite(digitBlack, digitWhite);
         mpSoulsDigit[i]->setAlpha(a);
         mpSoulsDigit[i]->draw(x + i * STEP, y, DIGIT_W, DIGIT_H, 0, 0, 0);
     }
