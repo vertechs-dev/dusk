@@ -17,6 +17,18 @@
 #include "d/d_s_menu.h"
 #endif
 
+// --- TP Combat: per-element damage scaling + freeze immunity ----------------
+// Gor Coron's Charm (fire) and Yeto's Charm (ice + no freeze). The mod pushes
+// these each frame from upgrade ownership; the engine applies them where the
+// incoming attack material is known (checkDamageAction below). Same exported-
+// setter pattern as the Souls / magic-meter mod hooks.
+static f32  s_fireDmgScale    = 1.0f;   // Gor Coron's Charm -> 0.5 when owned
+static f32  s_iceDmgScale     = 1.0f;   // Yeto's Charm      -> 0.5 when owned
+static bool s_iceFreezeImmune = false;  // Yeto's Charm      -> true when owned
+extern "C" void dCombat_setFireDamageScale(f32 s)   { s_fireDmgScale = s; }
+extern "C" void dCombat_setIceDamageScale(f32 s)    { s_iceDmgScale = s; }
+extern "C" void dCombat_setIceFreezeImmune(bool on) { s_iceFreezeImmune = on; }
+
 s16 daAlink_c::getFreezeR() const {
     return mpHIO->mDamage.m.mFreezeR;
 }
@@ -683,6 +695,14 @@ BOOL daAlink_c::checkDamageAction() {
                 dComIfGp_getVibration().StartShock(VIBMODE_S_POWER2, 0x1F, cXyz(0.0f, 1.0f, 0.0f));
             }
 
+            // TP Combat: Gor Coron's / Yeto's Charm reduce fire / ice damage.
+            if (at_mtrl == dCcD_MTRL_FIRE && dmg > 0) {
+                dmg = (int)(dmg * s_fireDmgScale + 0.5f);
+                if (dmg < 1) dmg = 1;
+            } else if (at_mtrl == dCcD_MTRL_ICE && dmg > 0) {
+                dmg = (int)(dmg * s_iceDmgScale + 0.5f);
+                if (dmg < 1) dmg = 1;
+            }
             setDamagePoint(dmg, at_mtrl == dCcD_MTRL_FIRE || at_mtrl == dCcD_MTRL_ICE, TRUE, 0);
             
 #ifdef TARGET_PC
@@ -885,7 +905,7 @@ int daAlink_c::procDamageInit(dCcD_GObjInf* i_tgObj, BOOL param_1) {
     daPy_frameCtrl_c* frame_ctrl = mUnderFrameCtrl;
     field_0x347c = M_PI / (frame_ctrl->getEnd() - frame_ctrl->getStart());
 
-    if (isFreezePlayer) {
+    if (isFreezePlayer && !s_iceFreezeImmune) {   // TP Combat: Yeto's Charm prevents freezing
         frame_ctrl->setRate(mpHIO->mDamage.mDamNormal.m.mIceDamageASpeed);
         frame_ctrl->setEnd(7);
         mNormalSpeed = 0.0f;

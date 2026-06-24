@@ -14,6 +14,8 @@ namespace {
     // Header layout, order: titleSize, marginX, marginY, dotSize, dotStep,
     // rowGap, labelSize, labelGap. Defaults match drawPageHeader's originals.
     float g_hdr[8] = {24.0f, 48.0f, 64.0f, 14.0f, 18.0f, 46.0f, 18.0f, 6.0f};
+    // Cost-text colour (RGB 0..1); default white. drawCost reads via the getter.
+    float g_costColor[3] = {1.0f, 1.0f, 1.0f};
 }
 
 // ---- public API (wired into DuskModAPIv1; called by the mod) ----
@@ -53,3 +55,9 @@ extern "C" void DuskUpgradeRing_SetHeaderLayout(float titleSize, float marginX, 
     g_hdr[4]=dotStep;   g_hdr[5]=rowGap;  g_hdr[6]=labelSize; g_hdr[7]=labelGap;
 }
 extern "C" const float* DuskUpgradeRing_GetHeaderLayout(void) { return g_hdr; }
+
+// ---- cost-text colour (mod sets, drawCost reads) ----
+extern "C" void DuskUpgradeRing_SetCostColor(float r, float g, float b) {
+    g_costColor[0] = r; g_costColor[1] = g; g_costColor[2] = b;
+}
+extern "C" const float* DuskUpgradeRing_GetCostColor(void) { return g_costColor; }

@@ -30,6 +30,8 @@
 
 // Live header-layout values, set from the mod (see d_menu_upgrade_ring_api.cpp).
 extern "C" const float* DuskUpgradeRing_GetHeaderLayout(void);
+// Live cost-text colour (RGB 0..1), set from the mod; read by drawCost.
+extern "C" const float* DuskUpgradeRing_GetCostColor(void);
 
 #include <cstdio>
 
@@ -1141,6 +1143,14 @@ void dMenu_UpgradeRing_c::setActiveCursor() {
        Cursor/selection mechanics are driven elsewhere. */
 }
 
+// The owned-state overlay (layer 1) renders as a small badge in the icon's
+// bottom-right corner — roughly cost-text sized — instead of covering the whole
+// 48x48 icon. Owned nodes draw no price, so that corner is free.
+static void drawOwnedOverlayBadge(J2DPicture* tex, f32 frameLeftX, f32 frameTopY) {
+    const f32 kBadge = 20.0f;
+    tex->draw(frameLeftX + 48.0f - kBadge, frameTopY + 48.0f - kBadge, kBadge, kBadge, 0, 0, 0);
+}
+
 void dMenu_UpgradeRing_c::drawItem() {
     field_0x684++;
     if (field_0x684 >= g_ringHIO.mItemAlphaFlashDuration) {
@@ -1166,11 +1176,17 @@ void dMenu_UpgradeRing_c::drawItem() {
             for (int j = 0; j < 3; j++) {
                 if (mpItemTex[i][j] != NULL) {
                     mpItemTex[i][j]->setAlpha(g_ringHIO.mItemIconAlpha * mAlphaRate * fVar17);
-                    f32 f0 = mItemSlotParam1[i] * 48.0f;
-                    f32 f1 = mItemSlotParam2[i] * 48.0f;
-                    f32 x = (48.0f - f0) * 0.5f + (mItemSlotPosX[i] - 24.0f + mCenterPosX);
-                    f32 y = (48.0f - f1) * 0.5f + (mItemSlotPosY[i] - 24.0f + mCenterPosY);
-                    mpItemTex[i][j]->draw(x, y, f0, f1, 0, 0, 0);
+                    if (j == 1) {   // layer 1 = owned overlay -> small corner badge
+                        drawOwnedOverlayBadge(mpItemTex[i][j],
+                                              mItemSlotPosX[i] - 24.0f + mCenterPosX,
+                                              mItemSlotPosY[i] - 24.0f + mCenterPosY);
+                    } else {
+                        f32 f0 = mItemSlotParam1[i] * 48.0f;
+                        f32 f1 = mItemSlotParam2[i] * 48.0f;
+                        f32 x = (48.0f - f0) * 0.5f + (mItemSlotPosX[i] - 24.0f + mCenterPosX);
+                        f32 y = (48.0f - f1) * 0.5f + (mItemSlotPosY[i] - 24.0f + mCenterPosY);
+                        mpItemTex[i][j]->draw(x, y, f0, f1, 0, 0, 0);
+                    }
                     // (No item gauges on upgrade icons. The vanilla item wheel
                     //  drew the Kantera oil meter here by reading real inventory
                     //  via dComIfGs_getItem(slot) — for the upgrade ring that
@@ -1268,12 +1284,17 @@ void dMenu_UpgradeRing_c::drawItem2() {
         for (int i = 0; i < 3; i++) {
             if (mpItemTex[idx][i] != NULL) {
                 mpItemTex[idx][i]->setAlpha(mAlphaRate * 255.0f);
-
-                f32 f0 = mItemSlotParam1[idx] * 48.0f;
-                f32 f1 = mItemSlotParam2[idx] * 48.0f;
-                f32 x = (48.0f - f0) * 0.5f + (mItemSlotPosX[idx] - 24.0f + mCenterPosX);
-                f32 y = (48.0f - f1) * 0.5f + (mItemSlotPosY[idx] - 24.0f + mCenterPosY);
-                mpItemTex[idx][i]->draw(x, y, f0, f1, 0, 0, 0);
+                if (i == 1) {   // layer 1 = owned overlay -> small corner badge
+                    drawOwnedOverlayBadge(mpItemTex[idx][i],
+                                          mItemSlotPosX[idx] - 24.0f + mCenterPosX,
+                                          mItemSlotPosY[idx] - 24.0f + mCenterPosY);
+                } else {
+                    f32 f0 = mItemSlotParam1[idx] * 48.0f;
+                    f32 f1 = mItemSlotParam2[idx] * 48.0f;
+                    f32 x = (48.0f - f0) * 0.5f + (mItemSlotPosX[idx] - 24.0f + mCenterPosX);
+                    f32 y = (48.0f - f1) * 0.5f + (mItemSlotPosY[idx] - 24.0f + mCenterPosY);
+                    mpItemTex[idx][i]->draw(x, y, f0, f1, 0, 0, 0);
+                }
                 // (No item gauges on upgrade icons — see drawItem.)
             }
         }
@@ -1287,16 +1308,18 @@ void dMenu_UpgradeRing_c::drawItem2() {
 }
 
 void dMenu_UpgradeRing_c::drawCost(u16 cost, u8 state, f32 x, f32 y) {
-    // Owned upgrades show the checkmark overlay instead of a price.
-    if (state == DUSK_UPG_OWNED) return;
+    // Owned upgrades show the purchased overlay instead of a price; locked
+    // upgrades are a full "???" mystery, so they show no price either.
+    if (state == DUSK_UPG_OWNED || state == DUSK_UPG_LOCKED) return;
 
-    // Tint the digits by affordability.
+    // Tint the digits: the base (affordable) colour is mod-tunable; an
+    // unaffordable cost overrides to red as an at-a-glance cue. (Owned and
+    // locked nodes return early above, so they never reach here.)
+    const float* cc = DuskUpgradeRing_GetCostColor();
     JUtility::TColor colorBlack(0, 0, 0, 0);
-    JUtility::TColor colorWhite(255, 255, 255, 255);
+    JUtility::TColor colorWhite((u8)(cc[0] * 255.0f), (u8)(cc[1] * 255.0f), (u8)(cc[2] * 255.0f), 255);
     if (state == DUSK_UPG_CANT_AFFORD) {
         colorWhite.set(255, 80, 80, 255);     // red
-    } else if (state == DUSK_UPG_LOCKED) {
-        colorWhite.set(150, 150, 150, 255);   // grey
     }
     for (int i = 0; i < 3; i++) {
         mpItemNumTex[i]->setBlackWhite(colorBlack, colorWhite);

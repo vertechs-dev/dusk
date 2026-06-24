@@ -562,8 +562,11 @@ int daAlink_c::procBowSubjectInit() {
         return 0;
     }
 
-    setSingleAnimeBaseSpeed(ANM_ATN_WAIT_RIGHT, 0.0f,
-                            mpHIO->mItem.mBow.m.mStartInterpolation);
+    f32 raiseMorf = mpHIO->mItem.mBow.m.mStartInterpolation;
+    if (s_quickslingScale != 1.0f && mEquipItem == dItemNo_PACHINKO_e) {
+        raiseMorf /= s_quickslingScale;   // Quicksling: faster raise (shorter blend-in)
+    }
+    setSingleAnimeBaseSpeed(ANM_ATN_WAIT_RIGHT, 0.0f, raiseMorf);
     mNormalSpeed = 0.0f;
     setBowOrSlingStatus();
     return 1;
@@ -587,7 +590,11 @@ int daAlink_c::procBowMoveInit() {
         onModeFlg(1);
     }
 
-    setBlendAtnMoveAnime(mpHIO->mItem.mBow.m.mStartInterpolation);
+    f32 moveMorf = mpHIO->mItem.mBow.m.mStartInterpolation;
+    if (s_quickslingScale != 1.0f && mEquipItem == dItemNo_PACHINKO_e) {
+        moveMorf /= s_quickslingScale;   // Quicksling: faster blend-in
+    }
+    setBlendAtnMoveAnime(moveMorf);
     mProcVar2.field_0x300c = 0;
     setBowOrSlingStatus();
     return 1;
