@@ -626,8 +626,9 @@ static bool        s_soulsIconDirty = false;  // re-skin the icon on next draw
 // Layout (px) — live-tunable from the mod's Mods tab via dMeter2_setSoulsLayout.
 static f32  s_soulsDigit   = 14.0f;  // digit width/height
 static f32  s_soulsStep    = 11.0f;  // horizontal spacing between digits
-static f32  s_soulsIconW   = 16.0f;  // icon width/height
-static f32  s_soulsIconGap = 3.0f;   // gap between last digit and icon
+static f32  s_soulsIconW    = 16.0f;   // icon width/height
+static f32  s_soulsIconOffX = 536.0f;  // icon X, own right-anchored offset (pre-ScaleHUDXRight)
+static f32  s_soulsIconOffY = 371.0f;  // icon Y (logical, positive = down)
 static f32  s_soulsColR    = 0.10f;  // digit font colour (0..1), default teal
 static f32  s_soulsColG    = 0.70f;
 static f32  s_soulsColB    = 0.75f;
@@ -635,8 +636,11 @@ static f32  s_soulsColB    = 0.75f;
 extern "C" void dMeter2_setSoulsEnabled(bool on)            { s_soulsEnabled = on; }
 extern "C" void dMeter2_setSoulsCount(s16 count)            { s_soulsCount = count; }
 extern "C" void dMeter2_setSoulsOffset(f32 rawX, f32 rawY)  { s_soulsOffX = rawX; s_soulsOffY = rawY; }
-extern "C" void dMeter2_setSoulsLayout(f32 digit, f32 step, f32 icon, f32 gap) {
-    s_soulsDigit = digit; s_soulsStep = step; s_soulsIconW = icon; s_soulsIconGap = gap;
+extern "C" void dMeter2_setSoulsLayout(f32 digit, f32 step, f32 icon) {
+    s_soulsDigit = digit; s_soulsStep = step; s_soulsIconW = icon;
+}
+extern "C" void dMeter2_setSoulsIconOffset(f32 rawX, f32 rawY) {
+    s_soulsIconOffX = rawX; s_soulsIconOffY = rawY;
 }
 extern "C" void dMeter2_setSoulsColor(f32 r, f32 g, f32 b) {
     s_soulsColR = r; s_soulsColG = g; s_soulsColB = b;
@@ -1065,6 +1069,13 @@ void dMeter2Draw_c::initRupeeKey() {
     mpSoulsIcon = JKR_NEW J2DPicture(mpSoulsIconBuf);
     mpSoulsIcon->setBasePosition(J2DBasePosition_4);
     mpSoulsIcon->changeTexture((ResTIMG*)mpSoulsIconBuf, 0);
+    // TP Combat: this HUD setup re-runs whenever the meter is reconstructed
+    // (e.g. scene/area transitions), re-seeding the bow above. If the mod has
+    // already supplied a custom Souls icon, re-arm the dirty flag so the next
+    // drawSoulsCounter re-applies it instead of leaving the bow placeholder.
+    if (s_soulsIconBytes != NULL && s_soulsIconLen > 0) {
+        s_soulsIconDirty = true;
+    }
 
     drawRupee(dComIfGs_getRupee());
     drawKey(dComIfGs_getKeyNum());
@@ -1712,7 +1723,16 @@ void dMeter2Draw_c::drawKanteraScreen(u8 i_meterType) {
     mpMagicBase->resize(field_0x5b4[i_meterType], field_0x5c0[i_meterType]);
     mpMagicParent->scale(field_0x5cc[i_meterType], field_0x5d8[i_meterType]);
 
-    mpMagicParent->paneTrans(field_0x5e4[i_meterType], field_0x5f0[i_meterType]);
+    // TP Combat: a second row of hearts (max life > 40, i.e. more than 10 hearts)
+    // overlaps the meters in their normal slot, so drop them. The magic meter
+    // lands at y=20 and the lantern-oil / oxygen gauges (which share this slot)
+    // shift down by the same amount, keeping their relative spacing.
+    // s_magicMeterOffY is the mod-set single-row magic Y, so (20 - it) is the
+    // shared shift. (getMaxLife() is in life units, 4 per heart; the SaveEditor's
+    // MaxHealth field is on a different scale, hence its confusing values.)
+    const f32 kTwoRowMagicY = 20.0f;
+    f32 twoRowShiftY = (dComIfGs_getMaxLife() > 40) ? (kTwoRowMagicY - s_magicMeterOffY) : 0.0f;
+    mpMagicParent->paneTrans(field_0x5e4[i_meterType], field_0x5f0[i_meterType] + twoRowShiftY);
 
     mpKanteraScreen->draw(0.0f, 0.0f, graf_ctx);
 }
@@ -2167,7 +2187,7 @@ void dMeter2Draw_c::drawSoulsCounter(s16 count, f32 x, f32 y) {
 
     // Size/spacing are live-tunable from the Mods tab (dMeter2_setSoulsLayout).
     const f32 DIGIT_W = s_soulsDigit, DIGIT_H = s_soulsDigit, STEP = s_soulsStep;
-    const f32 ICON_W  = s_soulsIconW, ICON_H  = s_soulsIconW, ICON_GAP = s_soulsIconGap;
+    const f32 ICON_W  = s_soulsIconW, ICON_H  = s_soulsIconW;
 
     // Digit font colour (live-tunable): map the grayscale digit texture's white
     // point to s_soulsCol* so the digits read like the rupee's gold count.
@@ -2183,7 +2203,8 @@ void dMeter2Draw_c::drawSoulsCounter(s16 count, f32 x, f32 y) {
         mpSoulsDigit[i]->draw(x + i * STEP, y, DIGIT_W, DIGIT_H, 0, 0, 0);
     }
     mpSoulsIcon->setAlpha(a);
-    mpSoulsIcon->draw(x + 4 * STEP + ICON_GAP, y, ICON_W, ICON_H, 0, 0, 0);
+    mpSoulsIcon->draw(mDoGph_gInf_c::ScaleHUDXRight(s_soulsIconOffX), s_soulsIconOffY,
+                      ICON_W, ICON_H, 0, 0, 0);
 }
 
 void dMeter2Draw_c::setAlphaRupeeChange(bool param_0) {

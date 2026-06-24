@@ -10,6 +10,12 @@ namespace {
     bool                     g_updateReq = false;  // pending model re-skin
     DuskUpgradeRingModel     g_model{};            // copied; the mod owns the category/node arrays
     DuskUpgradeRingCallbacks g_cb{};
+
+    // Header layout, order: titleSize, marginX, marginY, dotSize, dotStep,
+    // rowGap, labelSize, labelGap. Defaults match drawPageHeader's originals.
+    float g_hdr[8] = {24.0f, 48.0f, 64.0f, 14.0f, 18.0f, 46.0f, 18.0f, 6.0f};
+    // Cost-text colour (RGB 0..1); default white. drawCost reads via the getter.
+    float g_costColor[3] = {1.0f, 1.0f, 1.0f};
 }
 
 // ---- public API (wired into DuskModAPIv1; called by the mod) ----
@@ -40,3 +46,18 @@ extern "C" bool DuskUpgradeRing_PollClose(void) {
     g_closeReq = false; return true;
 }
 extern "C" void DuskUpgradeRing_NotifyClosed(void) { g_open = false; g_closeReq = false; g_updateReq = false; }
+
+// ---- header layout (mod sets, drawPageHeader reads) ----
+extern "C" void DuskUpgradeRing_SetHeaderLayout(float titleSize, float marginX, float marginY,
+                                                float dotSize, float dotStep, float rowGap,
+                                                float labelSize, float labelGap) {
+    g_hdr[0]=titleSize; g_hdr[1]=marginX; g_hdr[2]=marginY; g_hdr[3]=dotSize;
+    g_hdr[4]=dotStep;   g_hdr[5]=rowGap;  g_hdr[6]=labelSize; g_hdr[7]=labelGap;
+}
+extern "C" const float* DuskUpgradeRing_GetHeaderLayout(void) { return g_hdr; }
+
+// ---- cost-text colour (mod sets, drawCost reads) ----
+extern "C" void DuskUpgradeRing_SetCostColor(float r, float g, float b) {
+    g_costColor[0] = r; g_costColor[1] = g; g_costColor[2] = b;
+}
+extern "C" const float* DuskUpgradeRing_GetCostColor(void) { return g_costColor; }

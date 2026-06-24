@@ -1903,6 +1903,12 @@ static dJntColData_c l_wolfJntColData[] = {
     },
 };
 
+// TP Combat: Quicksling speeds up slingshot use. The mod pushes the factor; the
+// bow procs + commonDouble/SingleAnime apply it only while the slingshot is the
+// equipped item. Defined before the .inc block so the bow .inc can see it.
+static f32 s_quickslingScale = 1.0f;
+extern "C" void dCombat_setQuickslingScale(f32 s) { s_quickslingScale = s; }
+
 #include "d/actor/d_a_alink_link.inc"
 
 #include "d/actor/d_a_alink_cut.inc"
@@ -7032,6 +7038,14 @@ void daAlink_c::commonDoubleAnime(J3DAnmTransform* i_underBck1, J3DAnmTransform*
     mNowAnmPackUnder[0].setAnmTransform(i_underBck1);
     mNowAnmPackUnder[1].setAnmTransform(i_underBck2);
 
+    // TP Combat: Quicksling speeds only the upper (slingshot) body. The under
+    // (leg/move) controllers above already used the unscaled temp_f30, so Link's
+    // movement speed stays normal; scaling now only affects the upper rates.
+    if (s_quickslingScale != 1.0f && mEquipItem == dItemNo_PACHINKO_e &&
+        (mProcID == PROC_BOW_SUBJECT || mProcID == PROC_BOW_MOVE)) {
+        temp_f30 *= s_quickslingScale;
+    }
+
     if (i_upperBck1 != NULL) {
         f32 temp_f26 = i_upperBck1->getFrameMax();
         mNowAnmPackUpper[0].setAnmTransform(i_upperBck1);
@@ -7175,6 +7189,13 @@ void daAlink_c::commonSingleAnime(J3DAnmTransform* i_underBck, J3DAnmTransform* 
 
     setFrameCtrl(&mUnderFrameCtrl[0], i_underBck->getAttribute(), i_startF, end_frame, i_speed, frame);
     i_underBck->setFrame(frame);
+
+    // TP Combat: Quicksling speeds only the upper (slingshot) body — the under
+    // controller above already used the unscaled i_speed.
+    if (s_quickslingScale != 1.0f && mEquipItem == dItemNo_PACHINKO_e &&
+        (mProcID == PROC_BOW_SUBJECT || mProcID == PROC_BOW_MOVE)) {
+        i_speed *= s_quickslingScale;
+    }
 
     if (i_upperBck != NULL) {
         mNowAnmPackUpper[0].setAnmTransform(i_upperBck);
