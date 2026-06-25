@@ -42,6 +42,27 @@ dMeter2Draw_c::dMeter2Draw_c(JKRExpHeap* mp_heap) {
                                            dComIfGp_getMsgDtArchive(1));
     dMeter2Info_setStageMsgResource(stg_msg_res);
 
+    // TP Combat: double the prices in Trill's Faron Woods (F_SP108) shop text —
+    // the readable signs AND his spoken price lines all read "20 Rupees" /
+    // "30 Rupees" as static ASCII in this stage's shop message archive (a
+    // zel_##.bmg). Patch the leading digit in the loaded buffer here, once,
+    // before anything renders it, so they all show 40/60 to match the doubled
+    // item value (d_a_obj_ss_drink). Same-length edit, so the BMG layout is
+    // untouched; the magic + size checks keep the scan in-bounds. Gated to
+    // F_SP108 so no other shop is affected.
+    if (stg_msg_res != NULL && strcmp(dComIfGp_getStartStageName(), "F_SP108") == 0 &&
+        memcmp(stg_msg_res, "MESGbmg1", 8) == 0) {
+        u8* buf = static_cast<u8*>(stg_msg_res);
+        // BMG header: 8-byte magic, then big-endian u32 total size at 0x08.
+        u32 size = ((u32)buf[8] << 24) | ((u32)buf[9] << 16) | ((u32)buf[10] << 8) | (u32)buf[11];
+        if (size >= 16 && size <= 0x200000) {
+            for (u32 i = 0; i + 9 <= size; i++) {
+                if (memcmp(buf + i, "20 Rupees", 9) == 0)      buf[i] = '4';
+                else if (memcmp(buf + i, "30 Rupees", 9) == 0) buf[i] = '6';
+            }
+        }
+    }
+
     void* msg_unit_res = JKRGetTypeResource('ROOT', "zel_unit.bmg", dComIfGp_getMsgDtArchive(0));
     dMeter2Info_setMsgUnitResource(msg_unit_res);
     mDoExt_setCurrentHeap(heap);

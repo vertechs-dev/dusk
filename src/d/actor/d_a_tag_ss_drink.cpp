@@ -83,6 +83,13 @@ u16 daTag_SSDrink_c::getFlowNodeNum() {
 
 u16 daTag_SSDrink_c::getValue() {
     u16 result = (fopAcM_GetParam(this) & 0xFFFF000) >> 12;
+    // TP Combat: double Trill's Faron Woods shop prices (F_SP108) to match the
+    // d_a_obj_ss_drink change — keeps the readable price tag / deposit total in
+    // lockstep (Lantern Oil 20->40, Red Potion 30->60). Static BMG sign text is
+    // updated separately.
+    if (strcmp(dComIfGp_getStartStageName(), "F_SP108") == 0) {
+        result = static_cast<u16>(result * 2);
+    }
     return result;
 }
 

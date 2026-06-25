@@ -9,6 +9,7 @@
 
 #include "d/d_particle.h"
 #include <cstdio>
+#include <cstring>
 #include "JSystem/J3DGraphAnimator/J3DMaterialAnm.h"
 #include "JSystem/J3DGraphBase/J3DMaterial.h"
 #include "JSystem/JKernel/JKRExpHeap.h"
@@ -1196,6 +1197,32 @@ u8 dPa_control_c::getRM_ID(u16 param_0) {
     return (param_0 & 0x8000) == 0 ? FALSE : TRUE;
 }
 
+// TP Combat: Tear-of-Light availability outside Twilight stages.
+//
+// The Tear "sizuku" particles (IDs below) are SCENE particles (0x8000 bit), so
+// they live in the per-stage Pscene###.jpc and are only present in the
+// overworld/Twilight scene bank. In a dungeon the scene bank lacks them, so the
+// drop's particle_set calls find no resource and nothing renders (only Link's
+// separate light-drop glow shows). To make them available everywhere we keep a
+// resident snapshot of the first scene bank that contains them in a 3rd resource
+// manager (bank 2, see createRoomScene), and route exactly these IDs to it
+// (see dPa_control_c::set). Only the exact tear IDs are redirected, so no other
+// stage's scene particles are affected.
+static JPAResourceManager* s_tearResMng  = NULL;
+static JKRHeap*            s_tearHeap    = NULL;
+static void*               s_tearResCopy = NULL;
+
+static bool isTearParticleID(u16 id) {
+    switch (id) {
+        case 0x8388: case 0x8389: case 0x838A:               // appear + line
+        case 0x838B: case 0x838C: case 0x838D:               // body
+        case 0x838E: case 0x838F: case 0x842B:               // body
+            return true;
+        default:
+            return false;
+    }
+}
+
 void dPa_control_c::createCommon(void const* param_0) {
 #if DEBUG
     s32 heapSize = m_resHeap->getSize((void*)param_0);
@@ -1208,7 +1235,9 @@ void dPa_control_c::createCommon(void const* param_0) {
     mCommonResMng = JKR_NEW_ARGS (mHeap, 0) JPAResourceManager(param_0, mHeap);
     JUT_ASSERT(2521, mCommonResMng != NULL);
     mCommonResMng->swapTexture(mDoGph_gInf_c::getFrameBufferTimg(), "dummy");
-    mEmitterMng = JKR_NEW_ARGS (mHeap, 0) JPAEmitterManager(3000, 250, mHeap, 0x13, 2);
+    // ridMax 3 (was 2): bank 0 = common, bank 1 = scene, bank 2 = TP Combat's
+    // resident Tear-of-Light snapshot (entered lazily in createRoomScene).
+    mEmitterMng = JKR_NEW_ARGS (mHeap, 0) JPAEmitterManager(3000, 250, mHeap, 0x13, 3);
     JUT_ASSERT(2531, mEmitterMng != NULL);
     mEmitterMng->entryResourceManager(mCommonResMng, 0);
     JKRHeap* prevHeap = mDoExt_setCurrentHeap(mHeap);
@@ -1248,6 +1277,33 @@ void dPa_control_c::createRoomScene() {
     mDoExt_setCurrentHeap(prevHeap);
     u32 memory = mDoExt_adjustSolidHeap(mSceneHeap);
     OS_REPORT("-------<Scene Particle Memory> %d\n", memory);
+
+    // TP Combat: the first time a scene bank that carries the Tear-of-Light
+    // particles loads, snapshot its whole .jpc into a resident resource manager
+    // at bank 2 so dungeons (whose scene bank lacks those IDs) can still render
+    // the tear. We copy m_sceneRes because the engine frees it on scene change;
+    // the copy + manager live in their own heap and are never torn down. Probe
+    // ID 0x838B is the tear body effect — present only in the overworld/Twilight
+    // bank that holds the full set. Failure at any step leaves the feature off
+    // (no tear in that case), never crashes.
+    if (s_tearResMng == NULL && mSceneResMng != NULL && m_sceneRes != NULL &&
+        mSceneResMng->checkUserIndexDuplication(0x838B)) {
+        u32 sz = m_resHeap->getSize(m_sceneRes);
+        if (sz != 0) {
+            s_tearHeap = JKRCreateExpHeap(sz + 0x80000, mDoExt_getArchiveHeap(), false);
+            if (s_tearHeap != NULL) {
+                s_tearResCopy = s_tearHeap->alloc(sz, 0x20);
+                if (s_tearResCopy != NULL) {
+                    memcpy(s_tearResCopy, m_sceneRes, sz);
+                    s_tearResMng = JKR_NEW_ARGS (s_tearHeap, 0)
+                        JPAResourceManager(s_tearResCopy, s_tearHeap);
+                    s_tearResMng->swapTexture(mDoGph_gInf_c::getFrameBufferTimg(), "dummy");
+                    mEmitterMng->entryResourceManager(s_tearResMng, 2);
+                    OS_REPORT("TP Combat: resident Tear particle bank captured (%u bytes)\n", sz);
+                }
+            }
+        }
+    }
 }
 
 bool dPa_control_c::readScene(u8 param_0, mDoDvdThd_toMainRam_c** param_1) {
@@ -1469,6 +1525,17 @@ JPABaseEmitter* dPa_control_c::set(u8 param_0, u16 param_1, cXyz const* i_pos,
                                    s8 param_8, GXColor const* param_9, GXColor const* param_10,
                                    cXyz const* param_11, f32 param_12) {
     u8 local_e0 = getRM_ID(param_1);
+    // TP Combat: fall back to the resident Tear snapshot (bank 2) ONLY when this
+    // stage's own scene bank lacks the tear resource (i.e. dungeons). When the
+    // current bank already has it (overworld), use it unchanged — redirecting
+    // those to bank 2 unconditionally regressed the overworld, so this keeps the
+    // original, known-good path wherever it exists.
+    if (s_tearResMng != NULL && isTearParticleID(param_1)) {
+        JPAResourceManager* primary = mEmitterMng->getResourceManager(local_e0);
+        if (primary == NULL || primary->getResource(param_1) == NULL) {
+            local_e0 = 2;
+        }
+    }
     JPAResourceManager* local_a8 = mEmitterMng->getResourceManager(local_e0);
     if (local_a8 == NULL) {
         return NULL;
@@ -1734,6 +1801,15 @@ u32 dPa_control_c::set(u32 param_0, u8 param_1, u16 param_2, cXyz const* pos,
                        GXColor const* param_11, cXyz const* param_12, f32 param_13) {
     level_c::emitter_c* this_00 = field_0x210.get(param_0);
     u8 uVar7 = getRM_ID(param_2);
+    // TP Combat: same fallback as the non-keyed set() below (which this path
+    // delegates to) — only divert to the resident Tear bank when the current
+    // scene bank lacks the resource, so getResUserWork reads from the same bank.
+    if (s_tearResMng != NULL && isTearParticleID(param_2)) {
+        JPAResourceManager* primary = mEmitterMng->getResourceManager(uVar7);
+        if (primary == NULL || primary->getResource(param_2) == NULL) {
+            uVar7 = 2;
+        }
+    }
     JPAResourceManager* this_01 = mEmitterMng->getResourceManager(uVar7);
     u32 uVar3 = this_01->getResUserWork(param_2);
     if (this_00 != NULL) {

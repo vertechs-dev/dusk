@@ -624,7 +624,11 @@ void item_func_ARROW_1() {
 }
 
 void item_func_PACHINKO_SHOT() {
-    dComIfGp_setItemPachinkoNumCount(50);
+    // TP Combat: a seed pickup grants 10 seeds instead of a full 50. The count
+    // is additive (mItemPachinkoNumCount += n) and later clamped to the pachinko
+    // max, so vanilla's 50 always topped the bar off — now it adds 10, capping
+    // at max when near full.
+    dComIfGp_setItemPachinkoNumCount(10);
 }
 
 void item_func_WATER_BOMB_5() {

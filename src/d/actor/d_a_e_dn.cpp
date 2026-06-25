@@ -362,6 +362,22 @@ static u8 hio_set;
 
 static daE_DN_HIO_c l_HIO;
 
+// TP Combat: Lizalfos outgoing attack-power scale. The mod pushes the factor via
+// dCombat_setLizalfosDamageScale(); the attack-Atp writes in the execute (claw
+// SetAtAtp(1) / tail SetAtAtp(2)) multiply by it. This has to live at the engine
+// write site: the engine re-derives at_sph's Atp every attack frame and then
+// registers the sphere with the collision manager in the same execute, so a
+// mod-side poll (which runs before the actor phase) would be overwritten before
+// the hit is checked.
+static f32 s_dnDamageScale = 1.0f;
+extern "C" void dCombat_setLizalfosDamageScale(f32 s) { s_dnDamageScale = s; }
+static u8 dn_scaledAtp(int base) {
+    int v = (int)(base * s_dnDamageScale);
+    if (v < 0)   v = 0;
+    if (v > 255) v = 255;
+    return (u8)v;
+}
+
 static fopAc_ac_c* target_info[10];
 
 static int target_info_count;
@@ -3168,7 +3184,7 @@ static int daE_DN_Execute(e_dn_class* i_this) {
             i_this->at_sph.SetR(l_HIO.model_size * 50.0f);
         }
 
-        i_this->at_sph.SetAtAtp(1);
+        i_this->at_sph.SetAtAtp(dn_scaledAtp(1));   // TP Combat: scaled (claw)
     }
 
     if (i_this->skull_model != NULL) {
@@ -3205,7 +3221,7 @@ static int daE_DN_Execute(e_dn_class* i_this) {
             i_this->at_sph.MoveCAt(pos);
         }
 
-        i_this->at_sph.SetAtAtp(2);
+        i_this->at_sph.SetAtAtp(dn_scaledAtp(2));   // TP Combat: scaled (tail)
         i_this->at_sph.SetR((70.0f + BREG_F(10)) * l_HIO.model_size);
     }
 
