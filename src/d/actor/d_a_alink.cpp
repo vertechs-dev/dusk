@@ -7399,6 +7399,17 @@ int daAlink_c::setUpperAnime(u16 i_anmResIdx, daAlink_c::daAlink_UPPER i_upperId
         i_speed *= mpHIO->mItem.mIronBoots.m.mWaterWalkAnmRate * (1.0f / mpHIO->mItem.mIronBoots.m.mWaterStartWalkAnmRate);
     }
 
+    // TP Combat: Quicksling speeds up the slingshot's draw/charge/shoot. The
+    // whole item action (setBowReloadAnime, the ASHOOT release, the ready/hold
+    // poses) runs on this UPPER_2 controller via setUpperAnime{,Base,BaseSpeed,
+    // Param}, so scaling i_speed here is the one chokepoint that actually makes
+    // the firing animation faster. (The commonDouble/SingleAnime + blend-morf
+    // scaling only touched the body posture on UPPER_0/1 — the visible draw and
+    // release never sped up.)
+    if (i_upperIdx == UPPER_2 && s_quickslingScale != 1.0f && mEquipItem == dItemNo_PACHINKO_e) {
+        i_speed *= s_quickslingScale;
+    }
+
     setFrameCtrl(&mUpperFrameCtrl[i_upperIdx], bck->getAttribute(), i_startFrame, i_endFrame, i_speed, frame);
     bck->setFrame(frame);
     setUpperAnimeMorf(i_morf);
@@ -14463,6 +14474,17 @@ bool daAlink_c::checkRoom() {
 }
 
 bool daAlink_c::checkNotBattleStage() {
+    // TP Combat: R_SP108 (Coro's house, the Faron Woods interior) is an ST_ROOM
+    // stage, which normally routes through checkRoom() and forbids the player
+    // from drawing/swinging the sword, using combat items, and guarding. Treat
+    // it as a battle-capable stage so combat works inside it. This is the single
+    // root predicate for those gates (sword draw at ~12165, the cut trigger in
+    // d_a_alink_cut.inc, guard in d_a_alink_guard.inc, item use in
+    // checkCastleTownUseItem); the ladder/auto-jump checks use checkRoomOnly()
+    // directly and are intentionally left as vanilla room behavior.
+    if (checkStageName("R_SP108")) {
+        return false;
+    }
     return checkRoom() || checkCastleTown();
 }
 

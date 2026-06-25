@@ -1549,9 +1549,10 @@ static int daE_SM2_Create(fopAc_ac_c* i_this) {
             a_this->type = TYPE_GREEN;
         }
 
-        if (!dComIfGs_isItemFirstBit(dItemNo_ARMOR_e) && a_this->type == TYPE_GREEN) {
-            return cPhs_ERROR_e;
-        }
+        // TP Combat: the vanilla green-Chu gate ("return cPhs_ERROR_e unless the
+        // Magic Armor item-first-bit is set") is intentionally removed so the
+        // green Chu can be spawned at any point regardless of Magic Armor
+        // ownership. See tp-combat-mod/docs/EnemyCompendium.md.
 
         if (a_this->field_0x5b4 < 10) {
             if (strcmp(dComIfGp_getStartStageName(), "T_ENEMY") == 0) {

@@ -7,6 +7,7 @@
 
 #include "d/d_menu_item_explain.h"
 #include "JSystem/J2DGraph/J2DTextBox.h"
+#include "JSystem/JUtility/JUTFont.h"
 #include "JSystem/JKernel/JKRExpHeap.h"
 #include "JSystem/JUtility/JUTTexture.h"
 #include <cstdio>
@@ -729,6 +730,90 @@ u8 dMenu_ItemExplain_c::openExplainTx(u32 param_0, u32 param_1) {
     return ret;
 }
 
+// Greedy word-wrap for a J2DTextBox body string.
+//
+// J2DPrint::parse (the layout path J2DTextBox::draw drives) wraps at the
+// *character* that overflows the box width — it has no notion of words — so a
+// raw string with no baked-in line breaks splits mid-word (e.g. "control st" /
+// "ick"). Vanilla item descriptions come from the message archive pre-wrapped;
+// the upgrade ring feeds raw strings through openExplainText, so they need
+// wrapping here.
+//
+// We insert '\n' at word boundaries using the SAME advance metric J2DPrint uses
+// (glyph advance * fontSizeX / cellWidth, plus per-glyph char spacing), measured
+// against the box's own width. Because we sum char spacing for every glyph
+// (J2DPrint omits the trailing glyph's spacing at its break check), our per-line
+// width is a slight over-estimate — strictly the safe direction: every line we
+// emit is guaranteed to fit, so J2DPrint never needs to break a word itself.
+// ASCII-only, which covers all upgrade descriptions. A single word wider than
+// the box still falls back to J2DPrint's character wrap (rare for these strings).
+static f32 itemExplain_glyphStep(JUTFont* font, int code, f32 fontSizeX,
+                                 s32 cellWidth, f32 charSpace) {
+    const s32 raw = font->isFixed() ? font->getFixedWidth() : font->getWidth(code);
+    return raw * (fontSizeX / (f32)cellWidth) + charSpace;
+}
+
+static void itemExplain_wordWrap(const char* in, J2DTextBox* box, char* out, u32 outCap) {
+    if (outCap == 0) return;
+    out[0] = '\0';
+    if (in == NULL || box == NULL) return;
+
+    JUTFont* font = box->getFont();
+    J2DTextBox::TFontSize fs;
+    box->getFontSize(fs);
+    const f32 boxWidth  = box->getWidth();
+    const f32 fontSizeX = fs.mSizeX;
+    const f32 charSpace = box->getCharSpace();
+    const s32 cellWidth = (font != NULL) ? font->getCellWidth() : 0;
+
+    u32 o = 0;
+    // If we can't measure for any reason, fall back to a plain copy (vanilla
+    // character-wrap behavior) rather than risk producing garbage.
+    if (font == NULL || cellWidth <= 0 || fontSizeX <= 0.0f || boxWidth <= 0.0f) {
+        while (in[o] != '\0' && o + 1 < outCap) { out[o] = in[o]; o++; }
+        out[o] = '\0';
+        return;
+    }
+
+    const f32 spaceStep = itemExplain_glyphStep(font, ' ', fontSizeX, cellWidth, charSpace);
+    f32  lineW     = 0.0f;
+    bool lineEmpty = true;
+    const char* p  = in;
+    while (*p != '\0') {
+        // Respect explicit newlines in the source string.
+        if (*p == '\n') {
+            if (o + 1 < outCap) out[o++] = '\n';
+            lineW = 0.0f; lineEmpty = true; p++; continue;
+        }
+        // Collapse runs of whitespace between words.
+        if (*p == ' ' || *p == '\t') { p++; continue; }
+
+        // Measure the next word.
+        const char* w = p;
+        f32 wordW = 0.0f;
+        while (*p != '\0' && *p != ' ' && *p != '\t' && *p != '\n') {
+            wordW += itemExplain_glyphStep(font, (unsigned char)*p, fontSizeX, cellWidth, charSpace);
+            p++;
+        }
+
+        // Break before this word if it (plus the separating space) won't fit.
+        if (!lineEmpty && (lineW + spaceStep + wordW) > boxWidth) {
+            if (o + 1 < outCap) out[o++] = '\n';
+            lineW = 0.0f; lineEmpty = true;
+        }
+        if (!lineEmpty) {
+            if (o + 1 < outCap) out[o++] = ' ';
+            lineW += spaceStep;
+        }
+        for (const char* q = w; q < p; q++) {
+            if (o + 1 < outCap) out[o++] = *q;
+        }
+        lineW += wordW;
+        lineEmpty = false;
+    }
+    out[(o < outCap) ? o : (outCap - 1)] = '\0';
+}
+
 u8 dMenu_ItemExplain_c::openExplainText(const char* title, const char* body) {
     u8 ret = 0;
     if (mStatus == 0) {
@@ -757,8 +842,14 @@ u8 dMenu_ItemExplain_c::openExplainText(const char* title, const char* body) {
         }
         J2DTextBox* infoBox = (J2DTextBox*)mpInfoText->getPanePtr();
         infoBox->setFont(mDoExt_getMesgFont());
-        // Single multi-line body string; the textbox handles wrapping.
-        infoBox->setString(0x200, body);
+        // J2DTextBox only character-wraps (mid-word); raw upgrade descriptions
+        // have no baked-in line breaks. Word-wrap to the box width first so
+        // words stay intact, then hand the result to the textbox. setString
+        // copies the string verbatim (it does NOT printf-format), so the wrapped
+        // buffer is passed directly — same call form as the original body.
+        char wrappedBody[0x200];
+        itemExplain_wordWrap(body, infoBox, wrappedBody, sizeof(wrappedBody));
+        infoBox->setString(0x200, wrappedBody);
 
         // Defeat draw()'s lazy archive re-load: it re-pulls the name/body panes
         // from the message archive whenever field_0xc8 != field_0xd0. Keep them

@@ -108,6 +108,15 @@ public:
     // its idle pause; mods can scale it to compress or stretch time between
     // attacks.
     s16& getWaitTimerRef() { return field_0x6c0; }
+    // True when the capsule that most recently hit this Bokoblin was a
+    // slingshot seed (AT_TYPE_SLINGSHOT). damage_check() resolves
+    // mAtInfo.mpCollider from the hit sphere before calling setActionMode(), so
+    // a setActionMode pre-hook can use this to tell a seed apart from a sword
+    // cut that produced the same `i_state`/prm value (a non-killing seed on the
+    // E_OC variant falls through damage_check with prm==2, same as a light cut).
+    bool checkLastHitSlingshot() const {
+        return mAtInfo.mpCollider != NULL && mAtInfo.mpCollider->ChkAtType(AT_TYPE_SLINGSHOT) != 0;
+    }
 #endif
 
 private:

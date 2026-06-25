@@ -227,6 +227,15 @@ u16 daObj_SSDrink_c::getFlowNodeNum() {
 
 u16 daObj_SSDrink_c::getValue() {
     u16 value = (fopAcM_GetParam(this) & 0xffff000) >> 12;
+    // TP Combat: double the prices in Trill's Faron Woods shop (F_SP108) —
+    // Lantern Oil 20->40, Red Potion 30->60. d_a_myna sums getValueNumber()
+    // (seeded from this) into nowTotalPrice and compares the rupee box against
+    // it, so doubling here also doubles the deposit Trill requires before his
+    // steal/negative reactions (F_0802) fire. Sign text is separate (BMG) and
+    // updated independently.
+    if (strcmp(dComIfGp_getStartStageName(), "F_SP108") == 0) {
+        value = static_cast<u16>(value * 2);
+    }
     return value;
 }
 
