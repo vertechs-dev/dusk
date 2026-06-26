@@ -13,6 +13,7 @@
 #include "d/actor/d_a_horse.h"
 #include "d/d_com_inf_game.h"
 #include "f_op/f_op_actor_mng.h"   // fopAcM_GetRoomNo — for the Level Info overlay
+#include "f_op/f_op_actor_iter.h"  // fopAcIt_Executor — enumerate rooms with actors
 #include "dusk/dusk.h"
 #include "dusk/main.h"
 #include "m_Do/m_Do_main.h"
@@ -259,6 +260,18 @@ namespace dusk {
         ImGui::PopFont();
     }
 
+    // fopAcIt_Executor callback: marks rooms[r] = true for every actor's room.
+    // Actors only exist for loaded rooms, so the marked set is exactly the rooms
+    // loaded alongside the current one — the set a global actor search can see.
+    static int collectLoadedRoom(void* a, void* data) {
+        bool* rooms = static_cast<bool*>(data);
+        if (a != nullptr && fopAcM_IsActor(a)) {
+            int r = (int)fopAcM_GetRoomNo(static_cast<fopAc_ac_c*>(a));
+            if (r >= 0 && r < 64) rooms[r] = true;
+        }
+        return 0;
+    }
+
     void ImGuiMenuTools::ShowLevelInfo() {
         if (!getSettings().backend.enableAdvancedSettings || !m_showLevelInfo) {
             return;
@@ -293,6 +306,23 @@ namespace dusk {
             ImGui::Separator();
             ImGuiStringViewText(fmt::format(FMT_STRING("scope: {}/{}/{}\n"),
                 stage != nullptr ? stage : "?", room, layer));
+
+            // Rooms that currently have actors instantiated == the rooms loaded
+            // alongside this one. A global enemy search (like the D_MN05 monkey-
+            // cage event) sees every actor in these rooms, so keep event-gating
+            // placement enemies out of the rooms listed here.
+            bool loadedRooms[64] = {};
+            fopAcIt_Executor(collectLoadedRoom, loadedRooms);
+            std::string roomList;
+            for (int r = 0; r < 64; ++r) {
+                if (loadedRooms[r]) {
+                    if (!roomList.empty()) roomList += ' ';
+                    roomList += std::to_string(r);
+                }
+            }
+            ImGui::Separator();
+            ImGuiStringViewText(fmt::format(FMT_STRING("Loaded:   {}\n"),
+                roomList.empty() ? "(none)" : roomList.c_str()));
 
             ShowCornerContextMenu(m_levelInfoOverlayCorner, m_playerInfoOverlayCorner);
         }
