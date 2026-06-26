@@ -853,6 +853,18 @@ static void demo_camera(obj_so_class* i_this) {
                 sp54.set(16200.0f, 3481.0f, 8418.0f);
                 sp54 += sp48;
                 fopAcM_createChild(fpcNm_E_OC_e, i_parentID, 0xFFFF0104, &sp54, fopAcM_GetRoomNo(a_this), &i_angle, NULL, -1, NULL);
+
+                // --- TP Combat: one extra reinforcement (modded Lizalfos) -----
+                // Lizalfos (E_DN, full overhaul via the poll adapter). Spawns in
+                // room 2 with the cage pair, so it's killed during the arena fight
+                // and never sits alive in another loaded room — so it can't gate
+                // the monkey event the way stray Bokoblin PLACEMENTS did. NOTE:
+                // do NOT add Bokoblins (E_OC) here or in D_MN05 placements — the
+                // event counts every loaded E_OC, and this dungeon keeps most
+                // rooms resident at once.
+                cXyz exPos(13040.0f, 3150.0f, 5036.0f);
+                fopAcM_create(fpcNm_E_DN_e, 0xFFFFFFFF, &exPos,
+                              fopAcM_GetRoomNo(a_this), &i_angle, 0, -1);
             } else if (i_this->field_0x1ba2 == 125) {
                 i_this->mDemoMode = 100;
             }
