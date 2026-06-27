@@ -39,6 +39,9 @@ public:
     // Upgrade ring: open the description window straight from raw title/body
     // strings (bypasses the message-archive lookup the item paths use).
     u8 openExplainText(const char* title, const char* body);
+    // Upgrade ring: render a markup description (inline glyphs/colors/bullets)
+    // through the JMessage pipeline via a synthesized in-memory BMG.
+    u8 openExplainMarkup(const char* title, const char* markupBody);
     f32 getAlphaRatio();
     void setNumber();
     u8 getWarpMarkFlag();
@@ -101,6 +104,8 @@ private:
     /* 0xE5 */ u8 field_0xe5;
     /* 0xE6 */ u8 field_0xe6;
     /* 0xE7 */ u8 field_0xe7;
+    /* scratch */ u8 mMarkupBmg[0x600];   // in-memory BMG for the current description
+    bool mMarkupActive;                   // true while showing a markup body
 };
 
 #endif /* D_MENU_D_MENU_ITEM_EXPLAIN_H */
