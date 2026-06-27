@@ -844,14 +844,29 @@ static size_t markupWordWrap(dMsgMarkup::Token* t, size_t n, J2DTextBox* box,
         if (tok.kind == TOK_BULLET)  { emit(tok); lineW += glyphStep + spaceStep; continue; }
         if (tok.kind == TOK_GLYPH)   { if (lineW + glyphStep > boxWidth){ Token nl{TOK_NEWLINE,0,nullptr,0}; emit(nl); lineW=0;} emit(tok); lineW += glyphStep; continue; }
         if (tok.kind == TOK_COLOR_PUSH || tok.kind == TOK_COLOR_POP) { emit(tok); continue; }
-        // TOK_TEXT: wrap word-by-word within the run.
+        // TOK_TEXT: wrap word-by-word, preserving a single space between words.
+        // The word split consumes whitespace, so we must re-emit a space token
+        // (pointing at a real space char in the source) wherever the original
+        // text separated words — otherwise words concatenate. A separating space
+        // is dropped at a wrap boundary (the newline replaces it) and never
+        // starts a line.
         const char* p = tok.text; const char* end = tok.text + tok.textLen;
         while (p < end) {
-            while (p < end && *p == ' ') { lineW += spaceStep; p++; }   // spaces stay inline
+            bool sawSpace = false;
+            while (p < end && *p == ' ') { p++; sawSpace = true; }
+            const char* sp = sawSpace ? (p - 1) : NULL;   // a real ' ' in the run
+            if (p >= end) {                               // trailing space(s) before next token
+                if (sawSpace && lineW > 0.0f) { Token s{TOK_TEXT, 0, sp, 1}; emit(s); lineW += spaceStep; }
+                break;
+            }
             const char* w = p; f32 wordW = 0.0f;
             while (p < end && *p != ' ') { wordW += step((unsigned char)*p); p++; }
-            if (w == p) break;
-            if (lineW > 0.0f && lineW + wordW > boxWidth) { Token nl{TOK_NEWLINE,0,nullptr,0}; emit(nl); lineW = 0.0f; }
+            bool needSpace = sawSpace && lineW > 0.0f;
+            f32 sep = needSpace ? spaceStep : 0.0f;
+            if (lineW > 0.0f && lineW + sep + wordW > boxWidth) {
+                Token nl{TOK_NEWLINE,0,nullptr,0}; emit(nl); lineW = 0.0f; needSpace = false;
+            }
+            if (needSpace) { Token s{TOK_TEXT, 0, sp, 1}; emit(s); lineW += spaceStep; }
             Token tx{TOK_TEXT, 0, w, (uint16_t)(p - w)}; emit(tx); lineW += wordW;
         }
     }
