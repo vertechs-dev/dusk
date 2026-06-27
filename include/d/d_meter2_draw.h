@@ -14,6 +14,8 @@ class dKantera_icon_c;
 
 class dMeter2Draw_c : public dDlst_base_c {
 public:
+    // TP Combat active-blessing HUD: max icon slots (file-local state sizes to this).
+    enum { kBlessingSlots = 8 };
     enum {
         SELECT_X_e,
         SELECT_Y_e,
@@ -74,6 +76,7 @@ public:
     void setAlphaLightDropAnimeMax();
     void drawRupee(s16);
     void drawSoulsCounter(s16 count, f32 x, f32 y);   // TP Combat Souls HUD
+    void drawBlessingIcons();                          // TP Combat active-blessing HUD
     void setAlphaRupeeChange(bool);
     void setAlphaRupeeAnimeMin();
     void setAlphaRupeeAnimeMax();
@@ -193,6 +196,11 @@ private:
     J2DPicture* mpSoulsDigit[4];   // 4 digit textures (gold HUD font)
     J2DPicture* mpSoulsIcon;       // currency icon (vanilla seed or custom)
     ResTIMG*    mpSoulsIconBuf;    // 0xC00 buffer behind mpSoulsIcon
+    // TP Combat active-blessing HUD: a row of icons (mod-supplied .bti bytes)
+    // drawn above the hearts for owned passive upgrades whose condition holds.
+    // kBlessingSlots is public (declared up top) so the file-local state can size to it.
+    J2DPicture* mpBlessingIcon[kBlessingSlots];
+    ResTIMG*    mpBlessingIconBuf[kBlessingSlots];   // 0xC00 buffer behind each
     /* 0x2F8 */ CPaneMgr* mpButtonParent;
     /* 0x2FC */ int field_0x2fc;
     /* 0x300 */ CPaneMgr* mpButtonA;
