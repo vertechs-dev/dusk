@@ -94,7 +94,12 @@ f32 dMsgStringBase_c::getStringFromBmg(const void* bmg, u16 groupID, u16 index,
     // Re-parse only when the resource pointer changes (cheap: one tiny message).
     if (field_0x1c != bmg) {
         field_0x1c = (void*)bmg;
-        mpParse->parse(bmg, 0);
+        // 0x80: on DAT1, erase any other resource sharing our group ID so our
+        // message is the one getResource_groupID() returns. The container still
+        // holds zel_00's resource (parsed in the ctor, also group 0), which would
+        // otherwise shadow ours. Mirrors the resource-switch flag getStringLocal
+        // uses (d_msg_string_base.cpp / parseBlock_next 0x80 path).
+        mpParse->parse(bmg, 0x80);
     }
     mpRefer->init(box, NULL, NULL, outFont, 0);
     mpRefer->setColor(box->getCharColor(), box->getGradColor());

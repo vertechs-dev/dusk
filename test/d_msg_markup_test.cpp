@@ -76,7 +76,7 @@ static void test_build_bmg() {
     CHECK(blen > 0);
     CHECK(memcmp(bmg, "MESGbmg1", 8) == 0);
     CHECK(beRead32(bmg + 0xC) == 2);                 // block count
-    CHECK(bmg[0x10] == 1);                            // encoding
+    CHECK(bmg[0x10] == 0);                            // encoding (0 = inherit container's)
     CHECK(memcmp(bmg + 0x20, "INF1", 4) == 0);       // first block
     // INF1 size is at 0x20+4; DAT1 follows.
     uint32_t inf1Size = beRead32(bmg + 0x24);

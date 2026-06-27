@@ -136,7 +136,11 @@ size_t buildBmg(const uint8_t* msg, size_t msgLen, uint8_t* out, size_t cap) {
     memcpy(out, "MESGbmg1", 8);
     be32(out + 0x8, (uint32_t)total);
     be32(out + 0xC, 2);            // blocks
-    out[0x10] = 1;                 // encoding (1 = single-byte / CP1252)
+    // encoding 0 = "inherit": parseHeader_next skips setEncoding when the byte is
+    // 0, so the container keeps the encoding zel_00 already set (ctor parse). Our
+    // text is ASCII, valid under any of 1Byte/ShiftJIS/UTF8 — this dodges the
+    // isEncodingSettable() abort that a hardcoded mismatched encoding would cause.
+    out[0x10] = 0;                 // encoding (0 = inherit container's)
 
     // INF1
     uint8_t* inf = out + headerSize;
