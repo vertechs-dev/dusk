@@ -310,6 +310,12 @@ dMeter2Draw_c::~dMeter2Draw_c() {
     if (mpSoulsIcon != NULL) { JKR_DELETE(mpSoulsIcon); mpSoulsIcon = NULL; }
     if (mpSoulsIconBuf != NULL) { heap->free(mpSoulsIconBuf); mpSoulsIconBuf = NULL; }
 
+    // TP Combat active-blessing HUD cleanup
+    for (int i = 0; i < kBlessingSlots; i++) {
+        if (mpBlessingIcon[i] != NULL) { JKR_DELETE(mpBlessingIcon[i]); mpBlessingIcon[i] = NULL; }
+        if (mpBlessingIconBuf[i] != NULL) { heap->free(mpBlessingIconBuf[i]); mpBlessingIconBuf[i] = NULL; }
+    }
+
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 2; j++) {
             heap->free(mpItemBTex[i][j]);
@@ -654,6 +660,18 @@ static f32  s_soulsColR    = 0.10f;  // digit font colour (0..1), default teal
 static f32  s_soulsColG    = 0.70f;
 static f32  s_soulsColB    = 0.75f;
 
+// TP Combat active-blessing HUD. The mod registers each slot's icon .bti bytes
+// once (dMeter2_setBlessingIcon) and pushes the active-slot bitmask + layout
+// every frame (dMeter2_setBlessingHud); the engine draws set bits packed left.
+static u32  s_blessingMask = 0;        // bit i = slot i active (drawn)
+static f32  s_blessingOffX = 24.0f;    // left-anchored X (pre-ScaleHUDXLeft)
+static f32  s_blessingOffY = 16.0f;    // Y (positive = down)
+static f32  s_blessingSize = 20.0f;    // icon width/height
+static f32  s_blessingGap  = 4.0f;     // gap between icons
+static const void* s_blessingBytes[dMeter2Draw_c::kBlessingSlots] = { 0 };
+static u32         s_blessingLen[dMeter2Draw_c::kBlessingSlots]    = { 0 };
+static bool        s_blessingDirty[dMeter2Draw_c::kBlessingSlots]  = { false };
+
 extern "C" void dMeter2_setSoulsEnabled(bool on)            { s_soulsEnabled = on; }
 extern "C" void dMeter2_setSoulsCount(s16 count)            { s_soulsCount = count; }
 extern "C" void dMeter2_setSoulsOffset(f32 rawX, f32 rawY)  { s_soulsOffX = rawX; s_soulsOffY = rawY; }
@@ -668,6 +686,19 @@ extern "C" void dMeter2_setSoulsColor(f32 r, f32 g, f32 b) {
 }
 extern "C" void dMeter2_setSoulsIcon(const void* bti, u32 len) {
     s_soulsIconBytes = bti; s_soulsIconLen = len; s_soulsIconDirty = true;
+}
+
+// TP Combat active-blessing HUD. Register one slot's icon bytes (mod calls once
+// per blessing at init); the bytes are uploaded to the slot's J2DPicture on the
+// next draw via the dirty flag.
+extern "C" void dMeter2_setBlessingIcon(u32 slot, const void* bti, u32 len) {
+    if (slot >= (u32)dMeter2Draw_c::kBlessingSlots) return;
+    s_blessingBytes[slot] = bti; s_blessingLen[slot] = len; s_blessingDirty[slot] = true;
+}
+// Per-frame: which slots are active (bit i) + layout. mask 0 = draw nothing.
+extern "C" void dMeter2_setBlessingHud(u32 activeMask, f32 offX, f32 offY, f32 size, f32 gap) {
+    s_blessingMask = activeMask; s_blessingOffX = offX; s_blessingOffY = offY;
+    s_blessingSize = size; s_blessingGap = gap;
 }
 
 void dMeter2Draw_c::draw() {
@@ -699,6 +730,13 @@ void dMeter2Draw_c::draw() {
     // but stays up while shopping. Right-anchored above the rupee.
     if (s_soulsEnabled && (mpLifeParent->getAlphaRate() > 0.0f || DuskUpgradeRing_IsOpen())) {
         drawSoulsCounter(s_soulsCount, mDoGph_gInf_c::ScaleHUDXRight(s_soulsOffX), s_soulsOffY);
+    }
+
+    // TP Combat active-blessing HUD: icons above the hearts, fading with the
+    // life HUD (hidden in menus / pause). The mod sets the mask to 0 when no
+    // blessing condition holds, so this is a no-op then.
+    if (s_blessingMask != 0 && mpLifeParent->getAlphaRate() > 0.0f) {
+        drawBlessingIcons();
     }
 
     drawKanteraScreen(1);
@@ -1096,6 +1134,21 @@ void dMeter2Draw_c::initRupeeKey() {
     // drawSoulsCounter re-applies it instead of leaving the bow placeholder.
     if (s_soulsIconBytes != NULL && s_soulsIconLen > 0) {
         s_soulsIconDirty = true;
+    }
+
+    // TP Combat active-blessing HUD: one 0xC00 buffer + J2DPicture per slot,
+    // seeded with the bow placeholder (overwritten by the mod's bytes via the
+    // dirty flag). Like the Souls icon, re-arm dirty for already-registered
+    // slots so a meter reconstruction (scene transition) re-applies them.
+    for (int i = 0; i < kBlessingSlots; i++) {
+        mpBlessingIconBuf[i] = (ResTIMG*)heap->alloc(0xC00, 0x20);
+        dMeter2Info_readItemTexture((u8)dItemNo_BOW_e, mpBlessingIconBuf[i],
+                                    NULL, NULL, NULL, NULL, NULL, NULL, NULL, -1);
+        DCStoreRangeNoSync(mpBlessingIconBuf[i], 0xC00);
+        mpBlessingIcon[i] = JKR_NEW J2DPicture(mpBlessingIconBuf[i]);
+        mpBlessingIcon[i]->setBasePosition(J2DBasePosition_4);
+        mpBlessingIcon[i]->changeTexture((ResTIMG*)mpBlessingIconBuf[i], 0);
+        if (s_blessingBytes[i] != NULL && s_blessingLen[i] > 0) s_blessingDirty[i] = true;
     }
 
     drawRupee(dComIfGs_getRupee());
@@ -2226,6 +2279,28 @@ void dMeter2Draw_c::drawSoulsCounter(s16 count, f32 x, f32 y) {
     mpSoulsIcon->setAlpha(a);
     mpSoulsIcon->draw(mDoGph_gInf_c::ScaleHUDXRight(s_soulsIconOffX), s_soulsIconOffY,
                       ICON_W, ICON_H, 0, 0, 0);
+}
+
+// TP Combat active-blessing HUD. Draws the active slots (s_blessingMask) packed
+// left from s_blessingOffX, fading with the life HUD. Each active slot's icon is
+// (re)uploaded from the mod-supplied bytes on its first draw via the dirty flag.
+void dMeter2Draw_c::drawBlessingIcons() {
+    const u8  a    = (u8)(mpLifeParent->getAlphaRate() * 255.0f);
+    const f32 size = s_blessingSize;
+    f32 x = mDoGph_gInf_c::ScaleHUDXLeft(s_blessingOffX);
+    for (int i = 0; i < kBlessingSlots; i++) {
+        if (!(s_blessingMask & (1u << i))) continue;
+        if (s_blessingDirty[i] && s_blessingBytes[i] != NULL && s_blessingLen[i] > 0) {
+            s_blessingDirty[i] = false;
+            u32 len = s_blessingLen[i] <= 0xC00 ? s_blessingLen[i] : 0xC00;
+            memcpy(mpBlessingIconBuf[i], s_blessingBytes[i], len);
+            DCStoreRangeNoSync(mpBlessingIconBuf[i], 0xC00);
+            mpBlessingIcon[i]->changeTexture((ResTIMG*)mpBlessingIconBuf[i], 0);
+        }
+        mpBlessingIcon[i]->setAlpha(a);
+        mpBlessingIcon[i]->draw(x, s_blessingOffY, size, size, 0, 0, 0);
+        x += size + s_blessingGap;
+    }
 }
 
 void dMeter2Draw_c::setAlphaRupeeChange(bool param_0) {

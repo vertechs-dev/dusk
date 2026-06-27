@@ -1857,7 +1857,7 @@ u8 dMenu_UpgradeRing_c::openExplain(u8 param_0) {
             const DuskUpgradeCategory* cat = curCat();
             if (cat && mCurrentSlot < cat->node_count) {   // node_count, not stale mItemsTotal
                 const DuskUpgradeNode& node = cat->nodes[mCurrentSlot];
-                return mpItemExplain->openExplainText(node.name, node.description);
+                return mpItemExplain->openExplainMarkup(node.name, node.description);
             }
             return 0;
         }
