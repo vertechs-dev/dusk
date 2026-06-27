@@ -1168,9 +1168,31 @@ void dMeter2_c::moveRupee() {
     alphaAnimeRupee();
 }
 
+// TP Combat: mod-set small-key counter HUD offset (raw HUD units). A mod can't
+// link g_drawHIO and updateOnWide() rebuilds it every frame, so the mod pushes
+// the offset here via the exported setter and moveKey() applies it after the
+// per-frame reset (mirrors dMeter2_setMagicMeterOffset). Defaults 0 => vanilla.
+static f32 s_keyCounterOffX = 0.0f;
+static f32 s_keyCounterOffY = 0.0f;
+
+extern "C" void dMeter2_setKeyCounterOffset(f32 rawX, f32 rawY) {
+    s_keyCounterOffX = rawX;
+    s_keyCounterOffY = rawY;
+}
+
 void dMeter2_c::moveKey() {
     s16 var_r5;
     bool draw_key;
+
+    // TP Combat: apply the mod-set key-counter offset. moveKey() runs once per
+    // frame, after updateRenderSize() reset g_drawHIO to defaults, so += here
+    // yields default+offset with no cross-frame accumulation. Icon and number
+    // get the SAME delta, so they move as one unit; the change-detection below
+    // repositions the panes when the offset moves. Off==0 => byte-identical to vanilla.
+    g_drawHIO.mKeyPosX    += s_keyCounterOffX;
+    g_drawHIO.mKeyPosY    += s_keyCounterOffY;
+    g_drawHIO.mKeyNumPosX += s_keyCounterOffX;
+    g_drawHIO.mKeyNumPosY += s_keyCounterOffY;
 
     draw_key = false;
     if (dComIfGp_getItemKeyNumCount() != 0) {
