@@ -21,6 +21,7 @@
 #include "d/d_meter2_info.h"
 #include "d/d_meter_HIO.h"
 #include "d/d_msg_string.h"
+#include "d/d_msg_markup.h"
 #include "m_Do/m_Do_controller_pad.h"
 #include "m_Do/m_Do_graphic.h"
 #include "d/d_msg_scrn_3select.h"
@@ -102,6 +103,7 @@ dMenu_ItemExplain_c::dMenu_ItemExplain_c(JKRExpHeap* i_heap, JKRArchive* i_archi
     mpParent[1] = NULL;
     mpLabel = JKR_NEW CPaneMgr(mpInfoScreen, MULTI_CHAR('label_n'), 0, NULL);
     mDescAlpha = 0.0f;
+    mMarkupActive = false;
     field_0x78 = 0;
     mAlphaRatio = 201.0f;
 #if VERSION == VERSION_GCN_JPN
@@ -814,6 +816,48 @@ static void itemExplain_wordWrap(const char* in, J2DTextBox* box, char* out, u32
     out[(o < outCap) ? o : (outCap - 1)] = '\0';
 }
 
+// Insert TOK_NEWLINE tokens so each laid-out line fits `box` width. Glyph tokens
+// count as one cell (~ the space advance, a safe over-estimate; refine if glyphs
+// visibly overflow). Bullets reset the line and add a hanging indent on wrap.
+static size_t markupWordWrap(dMsgMarkup::Token* t, size_t n, J2DTextBox* box,
+                             dMsgMarkup::Token* out, size_t cap) {
+    using namespace dMsgMarkup;
+    JUTFont* font = box->getFont();
+    J2DTextBox::TFontSize fs; box->getFontSize(fs);
+    const f32 boxWidth  = box->getWidth();
+    const f32 fontSizeX = fs.mSizeX;
+    const f32 charSpace = box->getCharSpace();
+    const s32 cellWidth = (font != NULL) ? font->getCellWidth() : 0;
+    if (font == NULL || cellWidth <= 0 || fontSizeX <= 0.0f || boxWidth <= 0.0f) {
+        size_t m = n < cap ? n : cap; for (size_t i=0;i<m;i++) out[i]=t[i]; return m;
+    }
+    auto step = [&](int code){ s32 raw = font->isFixed()?font->getFixedWidth():font->getWidth(code);
+                               return raw * (fontSizeX/(f32)cellWidth) + charSpace; };
+    const f32 spaceStep = step(' ');
+    const f32 glyphStep = fontSizeX + charSpace;   // one cell per inline glyph
+
+    size_t o = 0; f32 lineW = 0.0f;
+    auto emit = [&](const Token& tok){ if (o < cap) out[o++] = tok; };
+    for (size_t i = 0; i < n; i++) {
+        const Token& tok = t[i];
+        if (tok.kind == TOK_NEWLINE) { emit(tok); lineW = 0.0f; continue; }
+        if (tok.kind == TOK_BULLET)  { emit(tok); lineW += glyphStep + spaceStep; continue; }
+        if (tok.kind == TOK_GLYPH)   { if (lineW + glyphStep > boxWidth){ Token nl{TOK_NEWLINE,0,nullptr,0}; emit(nl); lineW=0;} emit(tok); lineW += glyphStep; continue; }
+        if (tok.kind == TOK_COLOR_PUSH || tok.kind == TOK_COLOR_POP) { emit(tok); continue; }
+        // TOK_TEXT: wrap word-by-word within the run.
+        const char* p = tok.text; const char* end = tok.text + tok.textLen;
+        while (p < end) {
+            while (p < end && *p == ' ') { lineW += spaceStep; p++; }   // spaces stay inline
+            const char* w = p; f32 wordW = 0.0f;
+            while (p < end && *p != ' ') { wordW += step((unsigned char)*p); p++; }
+            if (w == p) break;
+            if (lineW > 0.0f && lineW + wordW > boxWidth) { Token nl{TOK_NEWLINE,0,nullptr,0}; emit(nl); lineW = 0.0f; }
+            Token tx{TOK_TEXT, 0, w, (uint16_t)(p - w)}; emit(tx); lineW += wordW;
+        }
+    }
+    return o;
+}
+
 u8 dMenu_ItemExplain_c::openExplainText(const char* title, const char* body) {
     u8 ret = 0;
     if (mStatus == 0) {
@@ -860,6 +904,47 @@ u8 dMenu_ItemExplain_c::openExplainText(const char* title, const char* body) {
         ret = 1;
     }
     return ret;
+}
+
+u8 dMenu_ItemExplain_c::openExplainMarkup(const char* title, const char* markupBody) {
+    if (mStatus != 0) return 0;
+    mStatus = 1; field_0xe1 = 0xff; field_0xe7 = 0; field_0xde = 0; field_0xdf = 0;
+    open_init(); setScale();
+    if (title == NULL) title = "";
+    if (markupBody == NULL) markupBody = "";
+
+    // Title panes (plain text, like openExplainText).
+    for (int i = 0; i < 4; i++) {
+        J2DTextBox* nameBox = (J2DTextBox*)mpNameText[i]->getPanePtr();
+        nameBox->setFont(mDoExt_getMesgFont());
+        nameBox->setString(0x20, i == 0 ? title : "");
+    }
+
+    // Body: tokenize -> wrap -> encode -> BMG -> render into infoBox + out-font.
+    J2DTextBox* infoBox = (J2DTextBox*)mpInfoText->getPanePtr();
+    infoBox->setFont(mDoExt_getMesgFont());
+    {
+        using namespace dMsgMarkup;
+        Token toks[256], wrapped[320];
+        size_t n = tokenize(markupBody, toks, 256);
+        size_t wn = markupWordWrap(toks, n, infoBox, wrapped, 320);
+        uint8_t msg[0x400];
+        size_t mlen = encodeMessage(wrapped, wn, msg, sizeof(msg));
+        size_t blen = buildBmg(msg, mlen, mMarkupBmg, sizeof(mMarkupBmg));
+        if (blen > 0) {
+            mpInfoString->resetStringLocal(infoBox);          // clear prior out-font sets
+            mpInfoString->getStringFromBmg(mMarkupBmg, dMsgMarkup::kGroupID,
+                                           dMsgMarkup::kIndex, infoBox, NULL);
+            mMarkupActive = true;
+        } else {
+            infoBox->setString(0x200, markupBody);            // overflow fallback: plain
+            mMarkupActive = false;
+        }
+    }
+
+    // Stop draw()'s lazy archive reload from clobbering our render.
+    field_0xcc = 0; field_0xc8 = 0; field_0xd0 = 0;
+    return 1;
 }
 
 f32 dMenu_ItemExplain_c::getAlphaRatio() {
