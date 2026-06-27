@@ -223,6 +223,7 @@ set(DOLZEL_FILES
         src/d/d_msg_scrn_tree.cpp
         src/d/d_msg_string_base.cpp
         src/d/d_msg_string.cpp
+        src/d/d_msg_markup.cpp
         src/d/d_msg_flow.cpp
         src/d/d_name.cpp
         src/d/d_npc_lib.cpp
