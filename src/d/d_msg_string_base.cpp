@@ -89,6 +89,24 @@ f32 dMsgStringBase_c::getStringLocal(u32 param_1, J2DTextBox* param_2, J2DTextBo
     return lineLength;
 }
 
+f32 dMsgStringBase_c::getStringFromBmg(const void* bmg, u16 groupID, u16 index,
+                                       J2DTextBox* box, COutFont_c* outFont) {
+    // Re-parse only when the resource pointer changes (cheap: one tiny message).
+    if (field_0x1c != bmg) {
+        field_0x1c = (void*)bmg;
+        mpParse->parse(bmg, 0);
+    }
+    mpRefer->init(box, NULL, NULL, outFont, 0);
+    mpRefer->setColor(box->getCharColor(), box->getGradColor());
+    mpCtrl->setMessageCode(groupID, index);
+    mpCtrl->update();
+    mpCtrl->render();
+    f32 lineLength = mpRefer->getLineLength(0);
+    mpCtrl->reset();
+    mpCtrl->resetResourceCache();
+    return lineLength;
+}
+
 f32 dMsgStringBase_c::getStringPageLocal(u32 param_1, u8 param_2, u8 param_3,
                                               J2DTextBox* param_4, J2DTextBox* param_5,
                                               JUTFont* param_6, COutFont_c* param_7, u8 param_8) {

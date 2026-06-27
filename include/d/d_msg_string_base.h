@@ -22,6 +22,12 @@ public:
     u8 getPageMax(int);
     f32 getMessageLocal(u32, char*);
 
+    // Render a one-message custom in-memory BMG (group/index) into the textbox
+    // + out-font, bypassing the message-archive ID lookup. Used by the upgrade
+    // ring's markup descriptions (see d_msg_markup.{h,cpp}).
+    f32 getStringFromBmg(const void* bmg, u16 groupID, u16 index, J2DTextBox* box,
+                         COutFont_c* outFont);
+
     virtual f32 getString(u32, J2DTextBox*, J2DTextBox*, JUTFont*, COutFont_c*, u8);
     virtual f32 getStringPage(u32, u8, u8, J2DTextBox*, J2DTextBox*, JUTFont*, COutFont_c*,
                                       u8);

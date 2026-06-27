@@ -31,6 +31,11 @@ public:
                                       param_8);
         }
     }
+    f32 getStringFromBmg(const void* bmg, u16 groupID, u16 index, J2DTextBox* box,
+                         COutFont_c* outFont = NULL) {
+        return dMsgStringBase_c::getStringFromBmg(
+            bmg, groupID, index, box, (outFont == NULL ? mpOutFont : outFont));
+    }
     virtual void resetStringLocal(J2DTextBox*);
     virtual void drawOutFontLocal(J2DTextBox*, f32);
     virtual void drawFontLocal(J2DTextBox*, u8, f32, f32, f32, f32, u32, u8);
