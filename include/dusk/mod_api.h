@@ -23,7 +23,15 @@ typedef enum {
 
 typedef struct {
     const char* name;          /* raw string -> name box                     */
-    const char* description;   /* raw string -> description window           */
+    /* Markup string -> description window. Tokens (engine: d_msg_markup.h):
+     *   Buttons:  {A} {B} {X} {Y} {L} {R} {Z} {dpad}
+     *   Stick:    {stick} {stick.rotate}(animated reticle)
+     *             {stick.left|right|up|down}  {arrow.left|right|up|down}
+     *   Color:    {red}...{/}  (also green/blue/yellow/orange; {/} = default)
+     *   Bullet:   a line starting with "- " becomes a bullet row
+     *   Newline:  \n   (lines auto-wrap to the box width)
+     * Plain text with no tokens renders as-is (backward compatible).            */
+    const char* description;
     uint16_t    cost;          /* shown near the name box                    */
     uint8_t     state;         /* DuskUpgradeState                           */
     uint8_t     icon_kind;     /* 0 = vanilla archive index, 1 = custom .bti */
