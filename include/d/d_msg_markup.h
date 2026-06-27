@@ -17,7 +17,10 @@ enum Glyph : uint16_t {
     GLYPH_X = 15, GLYPH_Y = 16, GLYPH_Z = 17, GLYPH_DPAD = 18,
     GLYPH_ARROW_LEFT = 20, GLYPH_ARROW_RIGHT = 21, GLYPH_ARROW_UP = 22, GLYPH_ARROW_DOWN = 23,
     GLYPH_STICK_UP = 24, GLYPH_STICK_DOWN = 25, GLYPH_STICK_LEFT = 26, GLYPH_STICK_RIGHT = 27,
-    GLYPH_STICK_ROTATE = 35,   // RED_TARGET: the animated rotating reticle
+    // STICK_CROSS: the animated rotating control stick (font_07 family, same as
+    // the directional {stick.left/right} above). NOT RED_TARGET (35), which is
+    // the red targeting reticle.
+    GLYPH_STICK_ROTATE = 19,
 };
 
 // Color indices into getFontCCColorTable (d_msg_class.cpp:216).
