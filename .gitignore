@@ -51,3 +51,6 @@ pipeline_cache.bin
 extract
 
 *.dusk
+
+# Build script — per-machine paths, kept local (not version-controlled)
+/build.bat

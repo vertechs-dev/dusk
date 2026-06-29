@@ -7,6 +7,7 @@ class CPaneMgr;
 class CPaneMgrAlpha;
 class J2DAnmColorKey;
 class J2DAnmTransformKey;
+class J2DTextBox;
 class JKRExpHeap;
 class JKRHeap;
 
@@ -77,6 +78,7 @@ public:
     void drawRupee(s16);
     void drawSoulsCounter(s16 count, f32 x, f32 y);   // TP Combat Souls HUD
     void drawBlessingIcons();                          // TP Combat active-blessing HUD
+    void drawUpgradeLabel();                           // TP Combat: "UPGRADES" d-pad label
     void setAlphaRupeeChange(bool);
     void setAlphaRupeeAnimeMin();
     void setAlphaRupeeAnimeMax();
@@ -201,6 +203,11 @@ private:
     // kBlessingSlots is public (declared up top) so the file-local state can size to it.
     J2DPicture* mpBlessingIcon[kBlessingSlots];
     ResTIMG*    mpBlessingIconBuf[kBlessingSlots];   // 0xC00 buffer behind each
+    // TP Combat: standalone "UPGRADES" label drawn under the d-pad button cross.
+    // Not part of any .blo — default-constructed like the upgrade ring's page
+    // title, then drawn in immediate mode anchored to the cross's live position
+    // so it follows the minimap expand/collapse and fades with the cross.
+    J2DTextBox* mpUpgradeLabel;
     /* 0x2F8 */ CPaneMgr* mpButtonParent;
     /* 0x2FC */ int field_0x2fc;
     /* 0x300 */ CPaneMgr* mpButtonA;
