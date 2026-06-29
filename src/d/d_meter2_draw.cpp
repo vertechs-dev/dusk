@@ -165,6 +165,7 @@ dMeter2Draw_c::dMeter2Draw_c(JKRExpHeap* mp_heap) {
     for (int i = 0; i < 4; i++) mpSoulsDigit[i] = NULL;
     mpSoulsIcon = NULL;
     mpSoulsIconBuf = NULL;
+    mpUpgradeLabel = NULL;   // TP Combat: built in initButtonCross()
 
     init();
     field_0xa8 = 0;
@@ -309,6 +310,10 @@ dMeter2Draw_c::~dMeter2Draw_c() {
     }
     if (mpSoulsIcon != NULL) { JKR_DELETE(mpSoulsIcon); mpSoulsIcon = NULL; }
     if (mpSoulsIconBuf != NULL) { heap->free(mpSoulsIconBuf); mpSoulsIconBuf = NULL; }
+
+    // TP Combat: "UPGRADES" d-pad label cleanup (standalone textbox, like the
+    // upgrade ring's page title — not owned by any screen tree).
+    if (mpUpgradeLabel != NULL) { JKR_DELETE(mpUpgradeLabel); mpUpgradeLabel = NULL; }
 
     // TP Combat active-blessing HUD cleanup
     for (int i = 0; i < kBlessingSlots; i++) {
@@ -701,6 +706,22 @@ extern "C" void dMeter2_setBlessingHud(u32 activeMask, f32 offX, f32 offY, f32 s
     s_blessingSize = size; s_blessingGap = gap;
 }
 
+// --- TP Combat: "UPGRADES" d-pad label (drawn below the button cross) ---------
+// The button cross already shows ITEMS (up) and MAP (right); this adds an
+// UPGRADES caption under the down direction. It is NOT a .blo pane: we draw a
+// standalone J2DTextBox in immediate mode anchored to the cross's live on-screen
+// position (see drawUpgradeLabel), so it inherits the cross's minimap-follow
+// shift and fades with it for free. On by default; the offsets/scale are
+// live-tunable from the Mods tab via the setters below.
+static bool s_upgradeLabelEnabled = true;
+static f32  s_upgradeLabelOffX    = 0.0f;   // px nudge right (+) from the cross centre
+static f32  s_upgradeLabelOffY    = 6.0f;   // px gap below the cross's bottom edge
+static f32  s_upgradeLabelScale   = 1.0f;   // multiplier on the matched ITEMS/MAP glyph size
+
+extern "C" void dMeter2_setUpgradeLabelEnabled(bool on)           { s_upgradeLabelEnabled = on; }
+extern "C" void dMeter2_setUpgradeLabelOffset(f32 rawX, f32 rawY) { s_upgradeLabelOffX = rawX; s_upgradeLabelOffY = rawY; }
+extern "C" void dMeter2_setUpgradeLabelScale(f32 scale)          { s_upgradeLabelScale = scale; }
+
 void dMeter2Draw_c::draw() {
     J2DGrafContext* graf_ctx = dComIfGp_getCurrentGrafPort();
     graf_ctx->setup2D();
@@ -737,6 +758,15 @@ void dMeter2Draw_c::draw() {
     // blessing condition holds, so this is a no-op then.
     if (s_blessingMask != 0 && mpLifeParent->getAlphaRate() > 0.0f) {
         drawBlessingIcons();
+    }
+
+    // TP Combat: "UPGRADES" caption under the d-pad cross. Drawn after
+    // mpScreen->draw() so the cross panes' global matrices are up to date this
+    // frame; gated on the cross actually being visible so it appears, hides, and
+    // fades in lockstep with ITEMS/MAP.
+    if (s_upgradeLabelEnabled && mpUpgradeLabel != NULL && mpButtonCrossParent != NULL &&
+        mpButtonCrossParent->getAlphaRate() > 0.0f) {
+        drawUpgradeLabel();
     }
 
     drawKanteraScreen(1);
@@ -1460,6 +1490,17 @@ void dMeter2Draw_c::initButtonCross() {
 
     mpButtonCrossParent->setAlphaRate(0.0f);
     drawButtonCross(g_drawHIO.mButtonCrossOFFPosX, g_drawHIO.mButtonCrossOFFPosY);
+
+    // TP Combat: build the standalone "UPGRADES" caption. Default-construct +
+    // attach the vanilla mesg font exactly like the ITEMS/MAP boxes above (and
+    // the upgrade ring's page title); drawUpgradeLabel() positions and sizes it
+    // each frame (it size-matches the live ITEMS label, so nothing to sample here).
+    mpUpgradeLabel = JKR_NEW J2DTextBox();
+    mpUpgradeLabel->setFont(mDoExt_getMesgFont());
+    mpUpgradeLabel->setString(0x40, "UPGRADES");
+    // Colours are set per-pass in drawUpgradeLabel() (offset black copies + a
+    // white fill), so the box channel stays transparent and only a thin outline
+    // shows — matching ITEMS/MAP without the solid cell box behind the glyphs.
 }
 
 void dMeter2Draw_c::playPikariBckAnimation(f32 i_frame) {
@@ -2301,6 +2342,74 @@ void dMeter2Draw_c::drawBlessingIcons() {
         mpBlessingIcon[i]->draw(x, s_blessingOffY, size, size, 0, 0, 0);
         x += size + s_blessingGap;
     }
+}
+
+// TP Combat: draw the "UPGRADES" caption beneath the d-pad button cross. Anchored
+// to the cross's live global vertices so it tracks the minimap-driven shift; the
+// horizontal centre is taken from the ITEMS label (which sits on the cross's
+// vertical axis) and the vertical anchor from the cross's bottom edge, so the
+// caption lands centred under the down direction — just like ITEMS/MAP sit on the
+// up/right ones. Caller has already confirmed the cross is visible.
+void dMeter2Draw_c::drawUpgradeLabel() {
+    if (mpTextI == NULL) return;
+
+    // Horizontal centre from the ITEMS label's bounds (min/max X — order-agnostic).
+    J2DPane* itemsPane = mpTextI->getPanePtr();
+    f32 minX = itemsPane->getGlbVtx(0).x, maxX = minX;
+    for (int i = 1; i < 4; i++) {
+        f32 vx = itemsPane->getGlbVtx(i).x;
+        if (vx < minX) minX = vx;
+        if (vx > maxX) maxX = vx;
+    }
+    const f32 centreX = (minX + maxX) * 0.5f + s_upgradeLabelOffX;
+
+    // Vertical anchor from the cross parent's bottom edge (max Y in screen space),
+    // and the ITEMS label's own rendered height (min/max Y) for size-matching.
+    f32 itemsMinY = itemsPane->getGlbVtx(0).y, itemsMaxY = itemsMinY;
+    for (int i = 1; i < 4; i++) {
+        f32 vy = itemsPane->getGlbVtx(i).y;
+        if (vy < itemsMinY) itemsMinY = vy;
+        if (vy > itemsMaxY) itemsMaxY = vy;
+    }
+    J2DPane* crossPane = mpButtonCrossParent->getPanePtr();
+    f32 bottomY = crossPane->getGlbVtx(0).y;
+    for (int i = 1; i < 4; i++) {
+        f32 vy = crossPane->getGlbVtx(i).y;
+        if (vy > bottomY) bottomY = vy;
+    }
+    const f32 topY = bottomY + s_upgradeLabelOffY;
+
+    // Self-calibrate the glyph size to the ITEMS label's actual on-screen cell
+    // height. ITEMS and UPGRADES share the mesg font, so matching the rendered
+    // cell height matches the glyph weight + outline thickness too — no guessing
+    // at the base font size or the cross's scale chain (and it tracks live HIO
+    // text-scale changes). s_upgradeLabelScale is a manual fudge on top.
+    const f32 fontPx = (itemsMaxY - itemsMinY) * s_upgradeLabelScale;
+
+    const u8 a = (u8)(mpButtonCrossParent->getAlphaRate() * 255.0f);
+    const f32 boxW = 256.0f;        // wide enough that HBIND_CENTER centres on centreX
+    const f32 x0   = centreX - boxW * 0.5f;
+
+    mpUpgradeLabel->setFontSize(fontPx, fontPx);
+    mpUpgradeLabel->setAlpha(a);
+
+    // The mesg font is two-tone: the "white" region is the glyph fill and the
+    // "black" region is a solid CELL box, NOT a per-glyph stroke — forcing it
+    // opaque draws black boxes behind the text. So keep the box channel fully
+    // transparent and build the outline the way the ITEMS/MAP labels do: draw a
+    // few offset black copies (glyph fill = black) and lay the white fill on top.
+    const JUtility::TColor kNoBox(0, 0, 0, 0);
+    f32 d = fontPx * 0.06f;         // outline thickness ~1px at the matched size
+    if (d < 1.0f) d = 1.0f;
+
+    mpUpgradeLabel->setBlackWhite(kNoBox, JUtility::TColor(0, 0, 0, 0xFF));  // black glyph
+    mpUpgradeLabel->draw(x0 - d, topY,     boxW, HBIND_CENTER);
+    mpUpgradeLabel->draw(x0 + d, topY,     boxW, HBIND_CENTER);
+    mpUpgradeLabel->draw(x0,     topY - d, boxW, HBIND_CENTER);
+    mpUpgradeLabel->draw(x0,     topY + d, boxW, HBIND_CENTER);
+
+    mpUpgradeLabel->setBlackWhite(kNoBox, JUtility::TColor(0xD2, 0xD2, 0xD2, 0xFF));  // dimmed fill
+    mpUpgradeLabel->draw(x0, topY, boxW, HBIND_CENTER);
 }
 
 void dMeter2Draw_c::setAlphaRupeeChange(bool param_0) {
