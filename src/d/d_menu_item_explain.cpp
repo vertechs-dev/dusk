@@ -15,6 +15,7 @@
 #include "d/actor/d_a_player.h"
 #include "d/d_com_inf_game.h"
 #include "d/d_item.h"
+#include "d/d_item_data.h"
 #include "d/d_kantera_icon_meter.h"
 #include "d/d_lib.h"
 #include "d/d_select_cursor.h"
@@ -652,6 +653,63 @@ u8 dMenu_ItemExplain_c::openExplainDmap(u8 param_0, u8 param_1, u8 param_2, bool
     {
         itemNo = 0x4f;
     }
+
+    // TP Combat: the Green/Blue Potions & Chu Jellies gain a magic-restore +
+    // infinite-magic effect (applied mod-side on drink). Their vanilla archive
+    // text doesn't describe that, so render a custom inline-glyph description
+    // here instead of the message-archive entry. The item icon is kept (we set
+    // field_0xe1 to the real item, not 0xff as the upgrade ring does).
+    const char* customTitle = NULL;
+    const char* customBody  = NULL;
+    // Title = the item's name (kept in the header); the flavor line sits in the
+    // body above the "- " usage bullet (markup: '\n' breaks the line, a leading
+    // "- " becomes the bullet glyph). Green Potion is named "Magic Potion" in the
+    // vanilla archive — overridden to "Green Potion" here.
+    switch (itemNo) {
+    case dItemNo_CHUCHU_GREEN_e:
+        customTitle = "Green Chu Jelly";
+        customBody  = "Magical jelly from a green Chu.\n\n"
+                      "- Set it to {Y} or {X} and drink it to {red}fully restore your "
+                      "magic and gain infinite magic for 30 seconds{/}.";
+        break;
+    case dItemNo_GREEN_BOTTLE_e:
+        customTitle = "Green Potion";
+        customBody  = "Green potion.\n\n"
+                      "- Set it to {Y} or {X} and drink it to {red}fully restore your "
+                      "magic and gain infinite magic for 30 seconds{/}.";
+        break;
+    case dItemNo_CHUCHU_BLUE_e:
+        customTitle = "Blue Chu Jelly";
+        customBody  = "Extraordinary jelly from a blue Chu.\n\n"
+                      "- Set it to {Y} or {X} and drink it to {red}restore all hearts "
+                      "and magic and gain infinite magic for 30 seconds{/}.";
+        break;
+    case dItemNo_BLUE_BOTTLE_e:
+        customTitle = "Blue Potion";
+        customBody  = "Blue potion.\n\n"
+                      "- Set it to {Y} or {X} and drink it to {red}restore all hearts "
+                      "and magic and gain infinite magic for 30 seconds{/}.";
+        break;
+    default:
+        break;
+    }
+    if (customTitle != NULL) {
+        bool fresh  = (mStatus == 0);
+        bool reopen = (param_3 && (mStatus == 1 || mStatus == 2));
+        if (fresh || reopen) {
+            if (fresh) mStatus = 1;
+            field_0xe1 = param_0;   // keep the bottle icon
+            field_0xe7 = 0;
+            field_0xde = param_1;
+            field_0xdf = param_2;
+            open_init();
+            setScale();
+            renderMarkupDesc(customTitle, customBody);
+            return 1;
+        }
+        return 0;
+    }
+
     if (mStatus == 0) {
         mStatus = 1;
         field_0xe1 = param_0;
@@ -921,10 +979,11 @@ u8 dMenu_ItemExplain_c::openExplainText(const char* title, const char* body) {
     return ret;
 }
 
-u8 dMenu_ItemExplain_c::openExplainMarkup(const char* title, const char* markupBody) {
-    if (mStatus != 0) return 0;
-    mStatus = 1; field_0xe1 = 0xff; field_0xe7 = 0; field_0xde = 0; field_0xdf = 0;
-    open_init(); setScale();
+// Render a markup title/body into the name + info panes (no status/icon setup).
+// Shared by the upgrade ring (openExplainMarkup) and the bottle item-description
+// routing in openExplainDmap. Callers own mStatus, field_0xe1 (icon), open_init,
+// and setScale; this only fills the panes and pins the lazy-reload guard fields.
+void dMenu_ItemExplain_c::renderMarkupDesc(const char* title, const char* markupBody) {
     if (title == NULL) title = "";
     if (markupBody == NULL) markupBody = "";
 
@@ -959,6 +1018,13 @@ u8 dMenu_ItemExplain_c::openExplainMarkup(const char* title, const char* markupB
 
     // Stop draw()'s lazy archive reload from clobbering our render.
     field_0xcc = 0; field_0xc8 = 0; field_0xd0 = 0;
+}
+
+u8 dMenu_ItemExplain_c::openExplainMarkup(const char* title, const char* markupBody) {
+    if (mStatus != 0) return 0;
+    mStatus = 1; field_0xe1 = 0xff; field_0xe7 = 0; field_0xde = 0; field_0xdf = 0;
+    open_init(); setScale();
+    renderMarkupDesc(title, markupBody);
     return 1;
 }
 

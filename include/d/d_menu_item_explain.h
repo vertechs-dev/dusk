@@ -42,6 +42,10 @@ public:
     // Upgrade ring: render a markup description (inline glyphs/colors/bullets)
     // through the JMessage pipeline via a synthesized in-memory BMG.
     u8 openExplainMarkup(const char* title, const char* markupBody);
+    // Fill the name/info panes from a markup title/body. Caller owns mStatus,
+    // the icon (field_0xe1), open_init, and setScale. Used by openExplainMarkup
+    // and the bottle item-description routing in openExplainDmap.
+    void renderMarkupDesc(const char* title, const char* markupBody);
     f32 getAlphaRatio();
     void setNumber();
     u8 getWarpMarkFlag();

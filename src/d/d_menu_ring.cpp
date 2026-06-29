@@ -1204,6 +1204,11 @@ void dMenu_Ring_c::setNameString(u32 i_stringID) {
         for (int i = 0; i < 4; i++) {
             if (i_stringID == 0) {
                 strcpy(textBox[i]->getStringPtr(), "");
+            } else if (i_stringID == dItemNo_GREEN_BOTTLE_e + 0x165) {
+                // TP Combat: the Green Potion is named "Magic Potion" in the
+                // message archive; show "Green Potion" on the item wheel to match
+                // its description. (0x165 is the item-name message-ID offset.)
+                strcpy(textBox[i]->getStringPtr(), "Green Potion");
             } else {
                 mpString->getString(i_stringID, textBox[i], NULL, NULL, NULL, 0);
             }

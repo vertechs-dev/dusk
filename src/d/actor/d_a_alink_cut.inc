@@ -2056,6 +2056,15 @@ int daAlink_c::procCutTurnMove() {
     return 1;
 }
 
+// Swift End (TP Combat): while the upgrade is owned the mod pushes a >1 lunge
+// scale here; procCutDownInit uses it to make Link's Ending Blow leap reach the
+// locked-on target faster. 1.0 = vanilla. See on_alink_procCutDownInit_swiftEnd_pre.
+static f32 s_endingBlowLungeScale = 1.0f;
+
+extern "C" void dAlink_setEndingBlowLungeScale(f32 scale) {
+    s_endingBlowLungeScale = (scale > 0.0f) ? scale : 1.0f;
+}
+
 int daAlink_c::procCutDownInit() {
     if (mDemo.getDemoMode() == daPy_demo_c::DEMO_CUT_DOWN_e && (mProcID == PROC_CUT_DOWN || mProcID == PROC_CUT_DOWN_LAND))
     {
@@ -2115,6 +2124,14 @@ int daAlink_c::procCutDownInit() {
             speed.y *= 1.5f;
         }
 
+        // Swift End: lower the leap's vertical velocity so the air time shrinks;
+        // the mNormalSpeed computed below (distance / air time) then rises by the
+        // same factor, carrying Link to the locked-on target faster while still
+        // landing on the enemy. 1.0 leaves the vanilla arc untouched.
+        if (s_endingBlowLungeScale > 1.0f) {
+            speed.y /= s_endingBlowLungeScale;
+        }
+
         f32 var_f30 = speed.y + gravity;
         f32 var_f29 = 1.0f / gravity;
 
@@ -2169,6 +2186,13 @@ int daAlink_c::procCutDownLandInit(fopEn_enemy_c* i_enemy) {
 
         var_r30 = 0x20;
         mProcVar0.field_0x3008 = mpHIO->mCut.mCutDown.m.mSuccessStopTime;
+        // Swift End: halve the pause between the stab landing and the recovery
+        // backflip (this stop-time is counted down in procCutDownLand before
+        // procBackJumpInit(1) fires). Gated on the same lunge-scale flag the mod
+        // pushes for the leap, which is still set during this Ending Blow.
+        if (s_endingBlowLungeScale > 1.0f) {
+            mProcVar0.field_0x3008 /= 2;
+        }
         dComIfGp_getVibration().StartShock(4, 31, cXyz(0.0f, 1.0f, 0.0f));
     } else {
         var_r30 = mPolySound;
