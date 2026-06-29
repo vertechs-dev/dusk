@@ -640,6 +640,15 @@ extern "C" void dMeter2_setMagicMeterOffset(f32 rawX, f32 rawY) {
     s_magicMeterOffY = rawY;
 }
 
+// Tint the magic bar pink while the TP Combat infinite-magic buff (Green/Blue
+// Potion & Chu Jelly) is active. Driven each frame by the mod from
+// magic::isInfinite(); drawKanteraScreen() reads it for the magic meter (type 0).
+static bool s_magicMeterPink = false;
+
+extern "C" void dMeter2_setMagicMeterPink(bool on) {
+    s_magicMeterPink = on;
+}
+
 // Is the mod's upgrade wheel open? (d_menu_upgrade_ring_api.cpp). The Souls
 // counter stays visible while the wheel is open — the player is spending Souls.
 extern "C" bool DuskUpgradeRing_IsOpen(void);
@@ -1795,10 +1804,16 @@ void dMeter2Draw_c::drawKanteraScreen(u8 i_meterType) {
     mpMagicParent->setAlphaRate(mMeterAlphaRate[i_meterType]);
 
     if (i_meterType == 0) {
-        JUtility::TColor black = mpMagicMeter->getInitBlack();
-        black.a = 255;
+        if (s_magicMeterPink) {
+            // TP Combat: infinite-magic buff active -> tint the bar pink.
+            mpMagicMeter->setBlackWhite(JUtility::TColor(150, 30, 90, 255),
+                                        JUtility::TColor(255, 140, 215, 255));
+        } else {
+            JUtility::TColor black = mpMagicMeter->getInitBlack();
+            black.a = 255;
 
-        mpMagicMeter->setBlackWhite(black, mpMagicMeter->getInitWhite());
+            mpMagicMeter->setBlackWhite(black, mpMagicMeter->getInitWhite());
+        }
         setAlphaMagicChange(true);
     } else if (i_meterType == 1) {
         mpMagicMeter->setBlackWhite(JUtility::TColor(255, 255, 140, 255),

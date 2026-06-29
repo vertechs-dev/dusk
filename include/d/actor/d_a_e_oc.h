@@ -117,6 +117,10 @@ public:
     bool checkLastHitSlingshot() const {
         return mAtInfo.mpCollider != NULL && mAtInfo.mpCollider->ChkAtType(AT_TYPE_SLINGSHOT) != 0;
     }
+    // Accessor for the enemy's sound object so mods can play collision SEs
+    // (e.g. the Ordon sword-hit sound for Tempest Razorwind) — collision SEs
+    // route through Z2Creature::startCollisionSE, and mSound is private.
+    Z2CreatureEnemy& getSound() { return mSound; }
 #endif
 
 private:

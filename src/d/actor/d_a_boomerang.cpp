@@ -10,6 +10,7 @@
 #include "d/actor/d_a_alink.h"
 #include "d/d_pane_class.h"
 #include "m_Do/m_Do_lib.h"
+#include "m_Do/m_Do_controller_pad.h"   // mDoCPd_c::getTrigLockR — Z-lock target stacking
 #include "d/actor/d_a_mirror.h"
 #include "Z2AudioLib/Z2Instances.h"
 #include "SSystem/SComponent/c_math.h"
@@ -774,6 +775,42 @@ JPABaseEmitter* daBoomerang_c::setEffectTraceMatrix(u32* i_emitterID, u16 i_name
 
 static daBoomerang_HIO_c0 l_HIO;
 
+// Tempest Razorwind (TP Combat): the mod pushes the cyclone's hit radius in world
+// units (cm) while the upgrade is active; 0 = vanilla (150). setEffect uses it for
+// the wind collision and procMove re-hits per frame + derives a capped visual
+// scale. The large radius keeps multi-locked enemies inside the cyclone across the
+// boomerang's wide flight arcs (the collision is centered on the boomerang, which
+// orbits/arcs well away from the target).
+static f32 s_boomerangWindRadius = 0.0f;
+
+extern "C" void dBoomerang_setWindRadius(f32 radius) {
+    s_boomerangWindRadius = (radius > 0.0f) ? radius : 0.0f;
+}
+
+// Tempest Razorwind flight state, polled by the mod each frame. The cyclone's
+// collision only reliably registers one hit per throw, so the mod drives the
+// continuous chip damage itself: it reads the boomerang's live position + radius
+// here and damages stun-tracked enemies within range. Active only while a
+// Razorwind boomerang is airborne (procMove); cleared when caught/held (procWait).
+static bool s_razorwindFlight    = false;
+static cXyz s_razorwindFlightPos = {0.0f, 0.0f, 0.0f};
+
+extern "C" bool dBoomerang_getRazorwindFlight(f32* ox, f32* oy, f32* oz, f32* oRadius) {
+    if (ox)      *ox      = s_razorwindFlightPos.x;
+    if (oy)      *oy      = s_razorwindFlightPos.y;
+    if (oz)      *oz      = s_razorwindFlightPos.z;
+    if (oRadius) *oRadius = s_boomerangWindRadius;
+    return s_razorwindFlight;
+}
+
+// The mod raises this when its Razorwind chip lands a hit; procMove plays the
+// Ordon sword-hit SE (collision-bank, so it routes through the boomerang's own
+// Z2Creature) and throttles it so the rapid chip ticks don't drone.
+static bool s_razorwindHitSignal = false;
+static s16  s_razorwindSeTimer   = 0;
+
+extern "C" void dBoomerang_signalRazorwindHit() { s_razorwindHitSignal = true; }
+
 void daBoomerang_c::setEffect() {
     static JGeometry::TVec3<f32> effDirection(0.0f, 1.0f, 0.0f);
     static JGeometry::TVec3<f32> effScale0(1.5f, 1.5f, 1.5f);
@@ -867,6 +904,11 @@ void daBoomerang_c::setEffect() {
         }
 
         m_windAtCyl.SetH(wind_cyl_height);
+
+        // Tempest Razorwind: widen the wind hitbox to the mod-pushed radius so the
+        // cyclone reaches the enemy across the boomerang's orbit. 150.0f is the
+        // baked l_windAtCylSrc base used when the upgrade isn't active.
+        m_windAtCyl.SetR(s_boomerangWindRadius > 0.0f ? s_boomerangWindRadius : 150.0f);
     }
 
     if (dComIfGp_checkPlayerStatus0(0, 0x80000) && fopAcM_GetParam(this) == 0) {
@@ -881,6 +923,7 @@ void daBoomerang_c::setEffect() {
 
 int daBoomerang_c::procWait() {
     daAlink_c* player = daAlink_getAlinkActorClass();
+    s_razorwindFlight = false;   // not airborne while held/caught (Razorwind chip off)
     speedF = 0.0f;
     setKeepMatrix();
 
@@ -949,10 +992,38 @@ int daBoomerang_c::procWait() {
                 var_r27 += 1;
             }
 
-            if (var_r27 == m_lockCnt) {
+            // Add the Z-locked enemy the first time it's seen (var_r27 ==
+            // m_lockCnt): track the actor so the pass follows it.
+            const bool alreadyLocked = (var_r27 != m_lockCnt);
+            if (!alreadyLocked) {
                 m_lockActors[m_lockCnt] = player->getAtnActor();
                 m_lockActorIDs[m_lockCnt] = atn_actor_id;
 
+                m_sight.initFrame(m_lockCnt);
+                mDoAud_seStart(l_lockSeFlg[m_lockCnt], NULL, 0, 0);
+                m_lockCnt++;
+            } else if (mDoCPd_c::getTrigLockR(PAD_1)) {
+                // Each extra press (edge-triggered) stacks ANOTHER pass on the
+                // same enemy, up to the 5-slot cap. Stored as a POSITION ringed
+                // around the enemy rather than re-adding the actor: distinct
+                // points force the boomerang to travel between passes, so the
+                // flight lingers longer and the cyclone sweeps back through the
+                // enemy each pass — re-adding the actor at one point collapses to
+                // a single pass with no extra linger. The ring stays inside the
+                // cyclone radius so the enemy keeps taking each pass. Mirrors the
+                // free-aim position-lock (field_0x718 = 1).
+                // Center the ring on the Z-target indicator point (chest height),
+                // not the feet — the wind cyclone's height runs from the ground
+                // up to the boomerang's Y, so orbiting low only reaches the feet
+                // and most passes miss. attention_info.position is where the
+                // lock-on reticle sits.
+                cXyz ringPos = player->getAtnActor()->attention_info.position;
+                const s16 ang = (s16)(m_lockCnt * (0x10000 / BOOMERANG_LOCK_MAX));
+                ringPos.x += 80.0f * cM_ssin(ang);
+                ringPos.z += 80.0f * cM_scos(ang);
+
+                m_lockActorsPositions[m_lockCnt] = ringPos;
+                field_0x718[m_lockCnt] = 1;
                 m_sight.initFrame(m_lockCnt);
                 mDoAud_seStart(l_lockSeFlg[m_lockCnt], NULL, 0, 0);
                 m_lockCnt++;
@@ -1050,8 +1121,15 @@ int daBoomerang_c::procMove() {
     }
 
     Vec shippu_size = {0.0f, 1.0f, 0.0f};
-    shippu_size.x = m_shippuSize;
-    shippu_size.z = m_shippuSize;
+    // Tempest Razorwind: enlarge the visible cyclone toward the hit radius, but
+    // cap it so a huge (~2000cm) hitbox doesn't balloon the graphic absurdly.
+    f32 windVisScale = 1.0f;
+    if (s_boomerangWindRadius > 0.0f) {
+        windVisScale = s_boomerangWindRadius / 150.0f;
+        if (windVisScale > 2.5f) windVisScale = 2.5f;
+    }
+    shippu_size.x = m_shippuSize * windVisScale;
+    shippu_size.z = m_shippuSize * windVisScale;
     mp_shippuModel->setBaseScale(shippu_size);
 
     offStateFlg0(daBoomerang_FLG0(FLG0_200 | FLG0_80));
@@ -1215,7 +1293,27 @@ int daBoomerang_c::procMove() {
 
     m_sound.startLevelSound(Z2SE_BOOM_TORNADO, 0, -1);
 
+    // Tempest Razorwind: publish the live flight position so the mod can chip
+    // enemies in range each frame (the cyclone collision only reliably lands one
+    // hit per throw; the mod drives the continuous damage off this instead).
+    s_razorwindFlight    = (s_boomerangWindRadius > 0.0f);
+    s_razorwindFlightPos = current.pos;
+
+    // Razorwind hit sound: play the Ordon sword-hit SE when the mod's chip lands,
+    // throttled (~0.2s) so the rapid ticks don't turn into a drone.
+    if (s_razorwindSeTimer > 0) {
+        s_razorwindSeTimer--;
+    }
+    if (s_razorwindHitSignal && s_razorwindSeTimer == 0) {
+        m_sound.startCollisionSE(Z2SE_HIT_SWORD, 0x20, NULL);
+        s_razorwindSeTimer = 12;  // ~0.2s at 60fps
+    }
+    s_razorwindHitSignal = false;
+
     if (!dComIfGp_event_runCheck()) {
+        if (s_boomerangWindRadius > 0.0f) {
+            m_windAtCyl.ResetAtHit();
+        }
         dComIfG_Ccsp()->Set(&m_windAtCyl);
         dComIfG_Ccsp()->SetMass(&m_windAtCyl, 1);
     } else {
