@@ -9,6 +9,7 @@
 #include "JSystem/J2DGraph/J2DAnmLoader.h"
 #include "d/actor/d_a_alink.h"
 #include "d/d_pane_class.h"
+#include "d/d_particle_name.h"          // ID_ZI_J_O_FIRE_A (Ook's Wrath dark-flame trail)
 #include "m_Do/m_Do_lib.h"
 #include "m_Do/m_Do_controller_pad.h"   // mDoCPd_c::getTrigLockR — Z-lock target stacking
 #include "d/actor/d_a_mirror.h"
@@ -803,6 +804,40 @@ extern "C" bool dBoomerang_getRazorwindFlight(f32* ox, f32* oy, f32* oz, f32* oR
     return s_razorwindFlight;
 }
 
+// Ook's Wrath (TP Combat): the mod flags this per-throw when the boomerang is
+// enchanted (owned + Razorwind active + full health). While set, procMove trails
+// a purple fire flame emitted from current.pos — the exact value setMoveMatrix
+// uses to place the mesh — so the flame sits ON the boomerang. Emitting here (not
+// mod-side) avoids a one-frame lag: mod_tick runs before actor execution, so a
+// mod-side trail read last frame's position and visibly lagged the fast mesh.
+static bool s_ooksWrathFlame   = false;
+static u32  s_ooksWrathEmitter = 0;
+// Live appearance, pushed each frame from the mod's Mods tab (Ook's Wrath Flame).
+// prm modulates the orange base, env adds the cool color (see the emit below).
+// Defaults = the tuned bright violet.
+static f32     s_ooksWrathScale = 3.0f;
+static GXColor s_ooksWrathPrm   = {0x64, 0x00, 0xFF, 0xFF};
+static GXColor s_ooksWrathEnv   = {0x5A, 0x00, 0xFF, 0xFF};
+
+extern "C" void dBoomerang_setOoksWrathFlame(bool active) {
+    s_ooksWrathFlame = active;
+}
+
+extern "C" void dBoomerang_setOoksWrathStyle(f32 scale, u8 pr, u8 pg, u8 pb,
+                                             u8 er, u8 eg, u8 eb) {
+    if (scale > 0.0f) s_ooksWrathScale = scale;
+    s_ooksWrathPrm.r = pr; s_ooksWrathPrm.g = pg; s_ooksWrathPrm.b = pb; s_ooksWrathPrm.a = 0xFF;
+    s_ooksWrathEnv.r = er; s_ooksWrathEnv.g = eg; s_ooksWrathEnv.b = eb; s_ooksWrathEnv.a = 0xFF;
+}
+
+// Read the current live Ook's Wrath flame style so other actors — Ook's own
+// boomerang (d_a_e_mk_bo) — can trail the same Mods-tab-tuned purple flame.
+extern "C" void dBoomerang_getOoksWrathStyle(f32* oScale, GXColor* oPrm, GXColor* oEnv) {
+    if (oScale) *oScale = s_ooksWrathScale;
+    if (oPrm)   *oPrm   = s_ooksWrathPrm;
+    if (oEnv)   *oEnv   = s_ooksWrathEnv;
+}
+
 // The mod raises this when its Razorwind chip lands a hit; procMove plays the
 // Ordon sword-hit SE (collision-bank, so it routes through the boomerang's own
 // Z2Creature) and throttles it so the rapid chip ticks don't drone.
@@ -924,6 +959,7 @@ void daBoomerang_c::setEffect() {
 int daBoomerang_c::procWait() {
     daAlink_c* player = daAlink_getAlinkActorClass();
     s_razorwindFlight = false;   // not airborne while held/caught (Razorwind chip off)
+    s_ooksWrathEmitter = 0;      // drop the Ook's Wrath flame handle; start fresh next throw
     speedF = 0.0f;
     setKeepMatrix();
 
@@ -1138,6 +1174,14 @@ int daBoomerang_c::procMove() {
 
     if (checkStateFlg0(FLG0_40)) {
         offStateFlg0(FLG0_40);
+        // Tempest Razorwind: FLG0_40 means the boomerang has reached the player's
+        // catch point, so it is no longer airborne — stop publishing flight state
+        // now. This frame returns early (below), before the procMove publish that
+        // would otherwise re-set the flag. Without clearing here, the caught-but-
+        // not-held branch deletes the actor with the flag still true, leaving the
+        // mod's cyclone chip running on the last flight position forever; the held
+        // branch would also chip for one extra frame until procWait clears it.
+        s_razorwindFlight = false;
         if (player->returnBoomerang(checkStateFlg0(FLG0_20))) {
             fopAcM_SetParam(this, 0);
             m_procFn = &daBoomerang_c::procWait;
@@ -1299,6 +1343,23 @@ int daBoomerang_c::procMove() {
     s_razorwindFlight    = (s_boomerangWindRadius > 0.0f);
     s_razorwindFlightPos = current.pos;
 
+    // Ook's Wrath: trail the Firecharge-Spin fire flame from the boomerang mesh,
+    // tinted purple, while the upgrade enchanted this throw. Emitted at the live
+    // current.pos (the same value setMoveMatrix just used for mp_boomModel), so
+    // the flame is exactly on the mesh with no frame lag.
+    if (s_ooksWrathFlame && s_boomerangWindRadius > 0.0f) {
+        // ID_ZI_J_O_FIRE_A is an orange flame: s_ooksWrathPrm modulates that warm
+        // base (no blue in it, so blue can't come from here) and s_ooksWrathEnv adds
+        // cool color on top. Both are live-tunable from the Mods tab; the defaults
+        // kill green + inject a strong env blue so the orange base reads violet.
+        cXyz wrathScale(s_ooksWrathScale, s_ooksWrathScale, s_ooksWrathScale);
+        s_ooksWrathEmitter = dComIfGp_particle_set(
+            s_ooksWrathEmitter, ID_ZI_J_O_FIRE_A, &current.pos, (const dKy_tevstr_c*)NULL,
+            (const csXyz*)NULL, &wrathScale, 0xFF, NULL, (s8)-1, &s_ooksWrathPrm, &s_ooksWrathEnv, NULL);
+    } else {
+        s_ooksWrathEmitter = 0;
+    }
+
     // Razorwind hit sound: play the Ordon sword-hit SE when the mod's chip lands,
     // throttled (~0.2s) so the rapid ticks don't turn into a drone.
     if (s_razorwindSeTimer > 0) {
@@ -1435,6 +1496,14 @@ static int daBoomerang_Execute(daBoomerang_c* i_this) {
 }
 
 daBoomerang_c::~daBoomerang_c() {
+    // Tempest Razorwind: a despawning boomerang is never airborne. Clear the
+    // mod-polled flight state (and the pushed wind radius) so no delete route —
+    // catch-delete, underwater, force-delete, or scene change — can leave the
+    // cyclone chip running after the actor is gone.
+    s_razorwindFlight     = false;
+    s_boomerangWindRadius = 0.0f;
+    s_ooksWrathFlame      = false;
+    s_ooksWrathEmitter    = 0;
     m_sound.deleteObject();
 }
 
