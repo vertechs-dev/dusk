@@ -40,7 +40,7 @@ daE_MK_HIO_c::daE_MK_HIO_c() {
     no = -1;
     size = 1.3f;
     boomerang_ratio = 1.0f;
-    pl_throw_dist_max = 1800.0f;
+    pl_throw_dist_max = 20000.0f;
     halt_action = 0;
     crown_pos_adjust.x = 0.0f;
     crown_pos_adjust.y = 0.0f;
@@ -52,7 +52,7 @@ void daE_MK_HIO_c::genMessage(JORMContext* ctx) {
     ctx->genLabel("  ブーメラン猿", 0x80000001);
     ctx->genSlider("基本サイズ", &size, 0.0f, 5.0f);
     ctx->genSlider("ブーメラン比率", &boomerang_ratio, 0.0f, 2.0f);
-    ctx->genSlider("PL投max距離", &pl_throw_dist_max, 0.0f, 4000.0f);
+    ctx->genSlider("PL投max距離", &pl_throw_dist_max, 0.0f, 20000.0f);
     ctx->genLabel("        ", 0x80000001);
     ctx->genCheckBox("動作停止", &halt_action, 0x1);
     ctx->genLabel("        ", 0x80000001);
@@ -713,7 +713,7 @@ static void e_mk_drop(e_mk_class* i_this) {
             if (i_this->anmP->isStop()) {
                 anm_init(i_this, dRes_INDEX_E_MK_BCK_MK_CHANCE_e, 5.0f, J3DFrameCtrl::EMode_LOOP, 1.0f);
                 i_this->mode = 4;
-                i_this->timer[0] = 150;
+                i_this->timer[0] = 60;
             }
             break;
         
@@ -2882,7 +2882,7 @@ static int daE_MK_Create(fopAc_ac_c* i_actor) {
         mk->acch.Set(fopAcM_GetPosition_p(i_actor), fopAcM_GetOldPosition_p(i_actor), i_actor, 1, &mk->acchcir,
                           fopAcM_GetSpeed_p(i_actor), NULL, NULL);
         mk->acchcir.SetWall(80.0f, 30.0f);
-        i_actor->field_0x560 = i_actor->health = 200;
+        i_actor->field_0x560 = i_actor->health = 300;
 
         mk->sound.init(&i_actor->current.pos, &i_actor->eyePos, 3, 1);
         mk->atInfo.mpSound = &mk->sound;
