@@ -11,6 +11,13 @@
 #include "d/d_s_play.h"
 #include "c/c_damagereaction.h"
 #include "Z2AudioLib/Z2Instances.h"
+#include "d/d_particle_name.h"          // ID_ZI_J_O_FIRE_A (Ook's Wrath dark-flame trail)
+
+// Ook's Wrath (TP Combat): Ook's thrown boomerang trails the same tuned purple
+// dark-flame as the player's enchanted Gale Boomerang. The style (size + colors)
+// is read live from the Gale Boomerang's Mods-tab state so the two always match.
+extern "C" void dBoomerang_getOoksWrathStyle(f32* oScale, GXColor* oPrm, GXColor* oEnv);
+static u32 s_ookBoFlameEmitter = 0;
 
 static int daE_MK_BO_Draw(e_mk_bo_class* i_this) {
     if (i_this->field_0x9b4 != 0) {
@@ -46,7 +53,10 @@ static void hit_check(e_mk_bo_class* i_this) {
     e_mk_class* e_mk = (e_mk_class*)a_parent;
     cXyz sp24;
 
-    if (i_this->ccAtSph.ChkTgHit() || i_this->acch.ChkGroundHit() || i_this->acch.ChkWallHit() || (e_mk != NULL && e_mk->demoMode == e_mk_class::DEMO_MODE_START && i_this->ccAtSph.ChkAtHit()) || i_this->ccAtSph.ChkAtShieldHit()) {
+    // TP Combat: wall-hit reversal dropped so the boomerang plows toward Link past the
+    // totem pillars instead of ricocheting back early. Ground hits still reverse it, and
+    // acch.CrrPos still corrects the position so it slides past a totem rather than piercing it.
+    if (i_this->ccAtSph.ChkTgHit() || i_this->acch.ChkGroundHit() || (e_mk != NULL && e_mk->demoMode == e_mk_class::DEMO_MODE_START && i_this->ccAtSph.ChkAtHit()) || i_this->ccAtSph.ChkAtShieldHit()) {
         i_this->field_0x5f8 = 20;
         OS_REPORT("E_MK_BO HIT \n");
 
@@ -154,7 +164,7 @@ static s8 e_mk_bo_shot(e_mk_bo_class* i_this) {
         }
     }
 
-    actor->speedF = 40.0f + NREG_F(0);
+    actor->speedF = 120.0f + NREG_F(0);
     cMtx_YrotS(*calc_mtx, actor->current.angle.y);
     cMtx_XrotM(*calc_mtx, actor->current.angle.x);
     sp3C.x = 0.0f;
@@ -605,6 +615,18 @@ static int daE_MK_BO_Execute(e_mk_bo_class* i_this) {
     mDoMtx_stack_c::transM(0.0f, 0.0f, i_this->field_0x5f0);
     i_this->model->setBaseTRMtx(mDoMtx_stack_c::get());
 
+    // Ook's Wrath: trail the purple dark-flame from this boomerang's mesh —
+    // current.pos, the value just used to place the model — every visible frame,
+    // using the live Gale-Boomerang style so both flames match.
+    {
+        f32 flScale; GXColor flPrm, flEnv;
+        dBoomerang_getOoksWrathStyle(&flScale, &flPrm, &flEnv);
+        cXyz flSize(flScale, flScale, flScale);
+        s_ookBoFlameEmitter = dComIfGp_particle_set(
+            s_ookBoFlameEmitter, ID_ZI_J_O_FIRE_A, &actor->current.pos, NULL, NULL,
+            &flSize, 0xFF, NULL, -1, &flPrm, &flEnv, NULL);
+    }
+
     e_mk_class* e_mk = (e_mk_class*)a_parent;
     if (e_mk->unkFlag4 == 6) {
         e_mk->unkFlag4 = 0;
@@ -768,13 +790,13 @@ static int daE_MK_BO_Create(fopAc_ac_c* i_this) {
 
         static dCcD_SrcSph at_sph_src = {
             {
-                {0x0, {{AT_TYPE_40, 0x2, 0x1f}, {0xd8fbfdff, 0x3}, 0x0}}, // mObj
+                {0x0, {{AT_TYPE_40, 0x4, 0x1f}, {0xd8fbfdff, 0x3}, 0x0}}, // mObj
                 {dCcD_SE_WOOD, 0x1, 0x1, 0x0, 0x0}, // mGObjAt
                 {dCcD_SE_METAL, 0x5, 0x0, 0x0, 0x2}, // mGObjTg
                 {0x0}, // mGObjCo
             }, // mObjInf
             {
-                {{0.0f, 0.0f, 0.0f}, 30.0f} // mSph
+                {{0.0f, 0.0f, 0.0f}, 150.0f} // mSph
             } // mSphAttr
         };
 
@@ -795,6 +817,8 @@ static int daE_MK_BO_Create(fopAc_ac_c* i_this) {
         } else {
             a_this->field_0x9b4 = 1;
         }
+
+        s_ookBoFlameEmitter = 0;   // fresh Ook's Wrath flame trail per throw
 
         mDoMtx_stack_c::scaleS(0.0f, 0.0f, 0.0f);
         a_this->model->setBaseTRMtx(mDoMtx_stack_c::get());

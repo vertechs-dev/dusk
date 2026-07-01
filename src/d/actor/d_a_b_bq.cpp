@@ -612,7 +612,7 @@ static void b_bq_damage(b_bq_class* i_this) {
             fopAcM_effSmokeSet1(&i_this->field_0x1220, &i_this->field_0x1224, &a_this->eyePos, NULL,
                                 TREG_F(11) + 5.0f, &a_this->tevStr, 1);
 
-            if (i_this->mDamageBackCount >= 2) {
+            if (i_this->mDamageBackCount >= 3) {
                 i_this->onDownFlg();
                 a_this->health = 50;
             }
@@ -644,7 +644,7 @@ static void b_bq_damage(b_bq_class* i_this) {
         break;
     case 20:
         i_this->mDamageBackCount++;
-        if (i_this->mDamageBackCount >= 3 &&
+        if (i_this->mDamageBackCount >= 4 &&
             (i_this->health <= 0 || daPy_getPlayerActorClass()->checkFastSwordCut()))
         {
             i_this->mAction = ACTION_END;
@@ -877,7 +877,7 @@ static s8 b_bq_attack(b_bq_class* i_this) {
 
     for (int i = 0; i < 4; i++) {
         i_this->mCcMizuSph[i].SetC(mizu_cc_center[i] + cc_center_offset);
-        i_this->mCcMizuSph[i].SetR(35.0f);
+        i_this->mCcMizuSph[i].SetR(105.0f);
         dComIfG_Ccsp()->Set(&i_this->mCcMizuSph[i]);
     }
 
@@ -2605,13 +2605,13 @@ static int daB_BQ_Create(fopAc_ac_c* i_this) {
 
         static dCcD_SrcSph mizu_sph_src = {
             {
-                {0x0, {{AT_TYPE_CSTATUE_SWING, 0x2, 0xd}, {0x0, 0x0}, 0x0}},  // mObj
+                {0x0, {{AT_TYPE_CSTATUE_SWING, 0x4, 0xd}, {0x0, 0x0}, 0x0}},  // mObj
                 {dCcD_SE_SOFT_BODY, 0x0, 0xd, 0x0, 0x0},                      // mGObjAt
                 {dCcD_SE_NONE, 0x0, 0x0, 0x0, 0x2},                           // mGObjTg
                 {0x0},                                                        // mGObjCo
             },                                                                // mObjInf
             {
-                {{0.0f, 0.0f, 0.0f}, 35.0f}  // mSph
+                {{0.0f, 0.0f, 0.0f}, 105.0f}  // mSph
             }                                // mSphAttr
         };
 
