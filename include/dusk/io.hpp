@@ -1,8 +1,11 @@
 #ifndef DUSK_IO_HPP
 #define DUSK_IO_HPP
 
+#include <cstdio>
 #include <filesystem>
 #include <vector>
+
+#include "dolphin/types.h"
 
 // I can't believe it's 2026 and neither SDL (no error codes) nor
 // C++ (no error codes) have a file system API functional enough for me to use.

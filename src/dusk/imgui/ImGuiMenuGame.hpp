@@ -2,6 +2,7 @@
 #define DUSK_IMGUI_MENUGAME_HPP
 
 #include <aurora/aurora.h>
+#include <os.h>
 #include <pad.h>
 #include <string>
 

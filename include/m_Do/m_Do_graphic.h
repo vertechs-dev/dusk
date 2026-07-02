@@ -6,6 +6,7 @@
 #include "global.h"
 #if TARGET_PC
 #include <aurora/aurora.h>
+#include "dusk/gx_helper.h"
 #endif
 
 #define FB_WIDTH_BASE (608)

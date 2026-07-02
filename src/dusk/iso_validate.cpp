@@ -1,5 +1,7 @@
 #include "iso_validate.hpp"
 
+#include "dusk/settings.h"
+
 #include <SDL3/SDL_iostream.h>
 #include <nod.h>
 #include <xxhash.h>

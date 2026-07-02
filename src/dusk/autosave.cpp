@@ -1,4 +1,6 @@
 #include "dusk/autosave.h"
+#include "d/d_com_inf_game.h"
+#include "dusk/settings.h"
 #include "dusk/ui/ui.hpp"
 #include "imgui/ImGuiConsole.hpp"
 

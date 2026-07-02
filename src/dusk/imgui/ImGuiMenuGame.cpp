@@ -6,6 +6,7 @@
 
 #include "dusk/main.h"
 #include "m_Do/m_Do_main.h"
+#include "m_Do/m_Do_controller_pad.h"
 
 namespace dusk {
     ImGuiMenuGame::ImGuiMenuGame() {}

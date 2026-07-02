@@ -1,6 +1,14 @@
 #ifndef DUSK_VERSION_HPP
 #define DUSK_VERSION_HPP
 
+#include <cstdlib>
+#include <initializer_list>
+
+#include <dvd.h>
+
+#include "dolphin/types.h"
+#include "global.h"
+
 /**
  * Functionality for switching game behavior based on the loaded game version (e.g. PAL/JPN, GC/Wii)
  */

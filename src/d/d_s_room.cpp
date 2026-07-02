@@ -31,7 +31,7 @@ static bool s_roomActorsReadyFired[64];
 // noinline + the volatile write: the engine calls this from the same TU, so without
 // these the compiler would inline/elide it and the mod's funchook (which patches the
 // symbol's prologue) would never fire.
-__declspec(noinline) void dStage_onRoomActorsReady(int roomNo) {
+DUSK_NOINLINE void dStage_onRoomActorsReady(int roomNo) {
     static volatile int s_lastReadyRoom = -1;
     s_lastReadyRoom = roomNo;
 }

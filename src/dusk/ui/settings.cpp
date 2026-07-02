@@ -1,3 +1,7 @@
+#include <aurora/aurora.h>
+#include <vi.h>
+#include "m_Do/m_Do_audio.h"
+#include "m_Do/m_Do_graphic.h"
 #include "settings.hpp"
 
 #include "aurora/gfx.h"

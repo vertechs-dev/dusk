@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "dusk/hook_system.hpp"
 #include "dusk/logging.h"
 

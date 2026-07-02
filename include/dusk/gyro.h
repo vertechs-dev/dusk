@@ -1,6 +1,8 @@
 #ifndef DUSK_GYRO_H
 #define DUSK_GYRO_H
 
+#include "dolphin/types.h"
+
 namespace dusk::gyro {
 void read(float dt);
 void getAimDeltas(float& out_yaw, float& out_pitch);
