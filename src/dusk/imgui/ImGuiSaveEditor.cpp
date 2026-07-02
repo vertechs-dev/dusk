@@ -1,4 +1,5 @@
-﻿#include "fmt/format.h"
+﻿#include <algorithm>
+#include "fmt/format.h"
 #include "imgui.h"
 #include "aurora/gfx.h"
 
