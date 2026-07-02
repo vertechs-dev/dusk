@@ -352,7 +352,7 @@ dMenu_UpgradeRing_c::dMenu_UpgradeRing_c(JKRExpHeap* i_heap, STControl* i_stick,
     mpBlackTex->setAlpha(0);
     ResTIMG* numTimg = (ResTIMG*)dComIfGp_getMain2DArchive()->getResource(
         'TIMG', dMeter2Info_getNumberTextureName(0));
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         mpItemNumTex[i] = JKR_NEW J2DPicture(numTimg);
     }
     mpSpotScreen = JKR_NEW J2DScreen();
@@ -604,7 +604,7 @@ dMenu_UpgradeRing_c::~dMenu_UpgradeRing_c() {
         }
     }
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         if (mpItemNumTex[i] != NULL) {
             JKR_DELETE(mpItemNumTex[i]);
             mpItemNumTex[i] = NULL;
@@ -1270,6 +1270,17 @@ void dMenu_UpgradeRing_c::drawPageHeader() {
         mpPageTitle->setString(0x80, "R");   // right edge at the safe-area anchor
         mpPageTitle->draw(0.0f, labelY, rRightEdge, HBIND_RIGHT);
     }
+
+    // "Refund (Z)" hint — small label centered under the title + pagination
+    // block. Rendered smaller than the L/R labels and dropped a bit further
+    // below the dot row. Reuses mpPageTitle (state is reset at the top each
+    // frame).
+    const f32 kRefundFontSize = kLabelFontSize * 0.7f;
+    const f32 refundY = rowY + kDotSize * 0.5f + kLabelFontSize * 1.5f;
+    mpPageTitle->setString(0x80, "Refund (Z)");
+    mpPageTitle->setFontSize(kRefundFontSize, kRefundFontSize);
+    mpPageTitle->setAlpha((u8)(mAlphaRate * 255.0f));
+    mpPageTitle->draw(0.0f, refundY, dotsCenterX * 2.0f, HBIND_CENTER);
 }
 
 void dMenu_UpgradeRing_c::drawItem2() {
@@ -1321,19 +1332,22 @@ void dMenu_UpgradeRing_c::drawCost(u16 cost, u8 state, f32 x, f32 y) {
     if (state == DUSK_UPG_CANT_AFFORD) {
         colorWhite.set(255, 80, 80, 255);     // red
     }
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         mpItemNumTex[i]->setBlackWhite(colorBlack, colorWhite);
     }
 
-    u32 c = cost > 999 ? 999 : cost;
-    int hundreds = (int)(c / 100);
-    int tens     = (int)((c / 10) % 10);
-    int ones     = (int)(c % 10);
-    int digits   = hundreds > 0 ? 3 : (tens > 0 ? 2 : 1);
+    // Souls balance is capped at 9999, so prices render up to 4 digits.
+    u32 c = cost > 9999 ? 9999 : cost;
+    int thousands = (int)(c / 1000);
+    int hundreds  = (int)((c / 100) % 10);
+    int tens      = (int)((c / 10) % 10);
+    int ones      = (int)(c % 10);
+    int digits    = thousands > 0 ? 4 : (hundreds > 0 ? 3 : (tens > 0 ? 2 : 1));
 
-    int vals[3] = {0, 0, 0};
-    if (digits == 3)      { vals[0] = hundreds; vals[1] = tens; vals[2] = ones; }
-    else if (digits == 2) { vals[0] = tens;     vals[1] = ones; }
+    int vals[4] = {0, 0, 0, 0};
+    if (digits == 4)      { vals[0] = thousands; vals[1] = hundreds; vals[2] = tens; vals[3] = ones; }
+    else if (digits == 3) { vals[0] = hundreds;  vals[1] = tens;     vals[2] = ones; }
+    else if (digits == 2) { vals[0] = tens;      vals[1] = ones; }
     else                  { vals[0] = ones; }
 
     f32 alpha = g_ringHIO.mItemIconAlpha * mAlphaRate;
@@ -1388,6 +1402,16 @@ void dMenu_UpgradeRing_c::stick_wait_proc() {
             }
         } else {
             Z2GetAudioMgr()->seStart(Z2SE_SYS_ERROR, NULL, 0, 0, 1.0f, 1.0f, -1.0f, -1.0f, 0);
+        }
+        return;
+    }
+
+    // Z -> refund every Soul spent on owned upgrades and reset them all to
+    // unpurchased. The state change + confirm/deny SE live mod-side (on_refund
+    // does the refund and re-skins the ring), mirroring the on_purchase path.
+    if (mDoCPd_c::getTrigZ(PAD_1) && !dMeter2Info_isTouchKeyCheck(0xe)) {
+        if (mpCallbacks && mpCallbacks->on_refund) {
+            mpCallbacks->on_refund();
         }
         return;
     }

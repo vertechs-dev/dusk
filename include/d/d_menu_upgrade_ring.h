@@ -115,7 +115,7 @@ private:
     /* 0x068 */ J2DPicture* mpSelectItemTex[4][3];
     /* 0x098 */ J2DPicture* mpItemTex[MAX_ITEM_SLOTS][3];
     /* 0x1B8 */ J2DPicture* mpBlackTex;
-    J2DPicture* mpItemNumTex[3];   // up-to-3 cost digits, drawn on each node icon
+    J2DPicture* mpItemNumTex[4];   // up-to-4 cost digits (0-9999), drawn on each node icon
     // Top-right page-title header (not in any .blo). Built standalone in the ctor
     // with the vanilla mesg font, right-justified, and drawn each frame by
     // drawPageHeader() with alpha = mAlphaRate so it fades with the wheel.

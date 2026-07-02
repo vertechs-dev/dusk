@@ -64,6 +64,10 @@ typedef struct {
     void (*on_purchase)(uint32_t category, uint32_t node);
     void (*on_category_change)(int32_t delta);
     void (*on_close)(void);
+    /* Z button while the wheel is open: refund every Soul spent on owned
+       upgrades and reset them all to unpurchased. Null = feature disabled;
+       the engine null-checks before calling. */
+    void (*on_refund)(void);
 } DuskUpgradeRingCallbacks;
 
 // Place this once at file scope in your mod to declare the minimum API version required.
