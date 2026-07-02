@@ -1,3 +1,4 @@
+#include <card.h>
 #include "dusk/settings.h"
 #include "dusk/config.hpp"
 

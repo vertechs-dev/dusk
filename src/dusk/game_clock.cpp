@@ -1,3 +1,4 @@
+#include "dusk/settings.h"
 #include "dusk/game_clock.h"
 
 #include <algorithm>

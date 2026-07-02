@@ -2,6 +2,7 @@
 #define DUSK_DUSK_H
 
 #include <aurora/aurora.h>
+#include "dolphin/types.h"
 
 #include "aurora/gfx.h"
 

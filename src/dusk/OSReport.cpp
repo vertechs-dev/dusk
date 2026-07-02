@@ -1,3 +1,4 @@
+#include <cstdarg>
 #include <memory>
 
 #include "aurora/lib/logging.hpp"

@@ -6,6 +6,10 @@
 
 #include "dusk/endian.h"
 
+#if TARGET_PC
+class J3DVertexData;
+#endif
+
 class J3DModelData;
 class J3DMaterialTable;
 struct J3DModelHierarchy;

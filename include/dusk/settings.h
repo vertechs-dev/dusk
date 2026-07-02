@@ -1,6 +1,8 @@
 #ifndef DUSK_CONFIG_H
 #define DUSK_CONFIG_H
 
+#include <os.h>
+
 #include "dusk/config_var.hpp"
 
 namespace dusk {

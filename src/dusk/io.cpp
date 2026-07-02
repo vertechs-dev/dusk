@@ -1,3 +1,6 @@
+#include <os.h>
+
+#include "global.h"
 #include <cstdio>
 #include <filesystem>
 

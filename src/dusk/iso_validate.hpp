@@ -3,6 +3,9 @@
 
 #include <atomic>
 
+#include "dolphin/types.h"
+#include "dusk/settings.h"
+
 namespace dusk::iso {
 struct KnownDisc;
 

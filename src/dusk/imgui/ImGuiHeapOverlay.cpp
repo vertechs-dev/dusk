@@ -1,3 +1,4 @@
+#include "dusk/settings.h"
 #include <array>
 #include <optional>
 

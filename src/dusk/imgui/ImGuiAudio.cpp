@@ -1,3 +1,4 @@
+#include "dusk/settings.h"
 #include "ImGuiConsole.hpp"
 #include "ImGuiMenuTools.hpp"
 #include <cmath>

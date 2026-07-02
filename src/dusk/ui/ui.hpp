@@ -9,6 +9,8 @@
 #include <string_view>
 
 #include "nav_types.hpp"
+#include "Z2AudioLib/Z2SeMgr.h"
+#include "dolphin/types.h"
 
 namespace dusk::ui {
 class Document;

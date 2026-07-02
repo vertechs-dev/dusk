@@ -3,6 +3,7 @@
 #include "button.hpp"
 #include "document.hpp"
 #include "dusk/iso_validate.hpp"
+#include "dusk/settings.h"
 
 #include <memory>
 #include <string>

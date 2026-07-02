@@ -3,6 +3,7 @@
 // On PC there is no register-level context save/restore; the OS handles
 // thread contexts natively via std::thread.
 
+#include <cstdlib>
 #include <dolphin/dolphin.h>
 #include <dolphin/os.h>
 #include <cstring>
