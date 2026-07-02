@@ -48,8 +48,8 @@ enum B_BH_RES_FILE_ID {
 daB_BH_HIO_c::daB_BH_HIO_c() {
     no = -1;
     model_size = 1.25f;
-    attack_freq_a = 175;
-    attack_freq_b = 125;
+    attack_freq_a = 117;
+    attack_freq_b = 83;
     down_revive_time = 250;
 }
 
@@ -155,7 +155,7 @@ static void b_bh_wait(b_bh_class* i_this) {
                         bh[1 - i_this->mID]->field_0x6a0 = 1;
                         bq_p->field_0x6fa = 2.0f + cM_rndF(2.99f);
                     } else {
-                        bq_p->field_0x6fe = 100.0f + cM_rndF(75.0f);
+                        bq_p->field_0x6fe = 66.67f + cM_rndF(50.0f);
                         if (bq_p->field_0x6fa != 0) {
                             bq_p->field_0x6fa--;
                         }
@@ -223,7 +223,7 @@ static void b_bh_attack_1(b_bh_class* i_this) {
         break;
     case 2:
         if (i_this->mTimers[0] == NREG_S(4) + 8) {
-            anm_init(i_this, BCK_BH_ATTACK, 3.0f, 0, 2.0f);
+            anm_init(i_this, BCK_BH_ATTACK, 3.0f, 0, 2.5f);
         }
 
         a_this->current.angle.y = i_this->field_0x684;
@@ -491,7 +491,7 @@ static void b_bh_b_wait(b_bh_class* i_this) {
                     a_this->speedF = 0.0f;
                     i_this->mAction = ACTION_B_ATTACK_1;
                     i_this->mMode = 0;
-                    bq_p->field_0x6fe = 50.0f + cM_rndF(50.0f);
+                    bq_p->field_0x6fe = 33.33f + cM_rndF(33.33f);
                 }
             }
 
@@ -546,7 +546,7 @@ static void b_bh_b_attack_1(b_bh_class* i_this) {
         break;
     case 2:
         if (i_this->mTimers[0] == NREG_S(4) + 8) {
-            anm_init(i_this, BCK_BH_ATTACK, 3.0f, 0, 2.0f);
+            anm_init(i_this, BCK_BH_ATTACK, 3.0f, 0, 2.5f);
         }
 
         a_this->current.angle.y = i_this->field_0x684;

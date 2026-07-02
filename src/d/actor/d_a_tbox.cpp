@@ -1789,6 +1789,19 @@ cPhs_Step daTbox_c::create1st() {
         home.angle.z = 0;
         home.angle.x = 0;
         mParamsInit = true;
+
+        // TP Combat content override: the Forest Temple (D_MN05) room-1 chest
+        // gives an Orange Rupee instead of its vanilla Yellow Rupee. A chest's
+        // item id is packed into the placement Z-rotation (the high byte of
+        // field_0x982, read back via getItemNo()); rewrite only that byte and
+        // keep the path id in the low byte. Gated on the current item so only the
+        // intended chest is touched — and the Forest Temple has no twilight
+        // layer, so stage+room+item uniquely identifies the layer-0 chest.
+        if (fopAcM_GetRoomNo(this) == 1 &&
+            getItemNo() == dItemNo_YELLOW_RUPEE_e &&
+            !strcmp(dComIfGp_getStartStageName(), "D_MN05")) {
+            field_0x982 = (field_0x982 & 0x00FF) | (dItemNo_ORANGE_RUPEE_e << 8);
+        }
     }
 
     if (getShapeType() > 2) {
