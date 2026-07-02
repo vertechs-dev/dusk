@@ -50,7 +50,9 @@ static constexpr const char* k_libExt = ".dll";
 #else
 #include <dlfcn.h>
 static void* pl_dlopen(const std::filesystem::path& p) {
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
+    // RTLD_DEEPBIND is a glibc extension; Bionic (Android) defines __linux__
+    // but not the flag.
     return dlopen(p.c_str(), RTLD_LAZY | RTLD_LOCAL | RTLD_DEEPBIND);
 #else
     return dlopen(p.c_str(), RTLD_LAZY | RTLD_LOCAL);

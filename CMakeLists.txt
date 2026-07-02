@@ -633,6 +633,9 @@ if (IOS)
     find_library(UNIFORM_TYPE_IDENTIFIERS_FRAMEWORK UniformTypeIdentifiers REQUIRED)
     target_sources(dusk PRIVATE src/dusk/ios/FileSelectDialog.m)
     set_source_files_properties(src/dusk/ios/FileSelectDialog.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+    # funchook calls __builtin___clear_cache; iOS's compiler-rt lacks the
+    # __clear_cache symbol it lowers to, so bridge it to sys_icache_invalidate.
+    target_sources(dusk PRIVATE src/dusk/ios/clear_cache_shim.c)
     target_link_libraries(dusk PRIVATE ${UIKIT_FRAMEWORK} ${UNIFORM_TYPE_IDENTIFIERS_FRAMEWORK})
 endif ()
 
