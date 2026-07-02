@@ -9,6 +9,11 @@ on:
 
 env:
   SCCACHE_GHA_ENABLED: "true"
+  # Cache-namespace salt. Bumped to 2 on 2026-07-02 to evict entries poisoned
+  # by the (since-removed) GCC precompiled-header + sccache combination, which
+  # served a stale cmake_pch.hxx.gch and broke Linux builds. Bump again if the
+  # cache ever needs a full reset.
+  SCCACHE_GHA_VERSION: "2"
   RUSTC_WRAPPER: "sccache"
   SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 

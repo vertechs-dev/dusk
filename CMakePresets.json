@@ -385,7 +385,8 @@
         "ci"
       ],
       "cacheVariables": {
-        "AURORA_SDL3_PROVIDER": "vendor"
+        "AURORA_SDL3_PROVIDER": "vendor",
+        "CMAKE_DISABLE_PRECOMPILE_HEADERS": "ON"
       }
     },
     {
