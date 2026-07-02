@@ -274,6 +274,20 @@ FetchContent_Declare(funchook
 set(FUNCHOOK_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(FUNCHOOK_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(FUNCHOOK_INSTALL OFF CACHE BOOL "" FORCE)
+# funchook picks its CPU backend from CMAKE_SYSTEM_PROCESSOR, which is the *host*
+# arch when cross-compiling via CMAKE_OSX_ARCHITECTURES (the macOS x86_64 CI job
+# runs on an arm64 runner and would otherwise build funchook_arm64.c with
+# -arch x86_64). Pin FUNCHOOK_CPU to the actual target arch instead.
+if (APPLE AND CMAKE_OSX_ARCHITECTURES)
+    list(LENGTH CMAKE_OSX_ARCHITECTURES _dusk_osx_arch_count)
+    if (_dusk_osx_arch_count EQUAL 1)
+        if (CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
+            set(FUNCHOOK_CPU x86)
+        elseif (CMAKE_OSX_ARCHITECTURES MATCHES "^arm64")
+            set(FUNCHOOK_CPU arm64)
+        endif ()
+    endif ()
+endif ()
 FetchContent_MakeAvailable(cxxopts json miniz funchook)
 
 if (DUSK_ENABLE_SENTRY_NATIVE)
@@ -603,9 +617,15 @@ if (APPLE)
         OUTPUT_NAME Dusk
         XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "YES"
         XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
-        XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${DUSK_ENTITLEMENTS}
         XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME "YES"
     )
+    if (DUSK_ENTITLEMENTS)
+        # Only macOS has an entitlements file (set above); iOS/tvOS leave
+        # DUSK_ENTITLEMENTS unset, and passing an empty value here is a CMake
+        # configure error (odd number of set_target_properties arguments).
+        set_target_properties(dusk PROPERTIES
+            XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS ${DUSK_ENTITLEMENTS})
+    endif ()
 endif ()
 
 if (IOS)

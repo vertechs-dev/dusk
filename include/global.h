@@ -127,6 +127,18 @@ inline int __builtin_clz(unsigned int v) {
 #  define DUSK_GAME_DATA
 #endif
 
+// Cross-compiler "never inline" for PC builds. Hook-anchor functions need a
+// real, patchable body; MSVC spells the attribute __declspec(noinline), while
+// GCC/Clang use __attribute__. (MWERKS GC code uses NO_INLINE /
+// FORCE_DONT_INLINE below instead.)
+#if defined(_MSC_VER) && !defined(__clang__)
+#  define DUSK_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#  define DUSK_NOINLINE __attribute__((noinline))
+#else
+#  define DUSK_NOINLINE
+#endif
+
 #define FAST_DIV(x, n) (x >> (n / 2))
 
 #define SQUARE(x) ((x) * (x))
