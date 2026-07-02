@@ -469,6 +469,23 @@ static void migrate_directory(const std::filesystem::path& from, const std::file
 }
 
 static std::filesystem::path calculate_config_path() {
+    // Portable mode: if "portable.txt" sits next to the executable, keep all
+    // writable data next to it (in ./userdata) instead of the per-user OS
+    // location. Everything downstream — config, pipeline cache, logs, game
+    // saves, and the mods dir (ConfigPath/mods) plus each mod's sidecars —
+    // derives from this path, so a single marker makes the whole engine + mod
+    // relocatable as a self-contained zip. The marker won't exist inside a
+    // sandboxed iOS/Android bundle, so those naturally fall through below.
+    if (const char* basePath = SDL_GetBasePath()) {
+        const std::filesystem::path base = reinterpret_cast<const char8_t*>(basePath);
+        std::error_code ec;
+        if (std::filesystem::exists(base / "portable.txt", ec)) {
+            const std::filesystem::path portableRoot = base / "userdata";
+            std::filesystem::create_directories(portableRoot, ec);
+            return portableRoot;
+        }
+    }
+
 #ifdef __APPLE__
 #if TARGET_OS_IOS && !TARGET_OS_TV
     const char* documentsPath = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS);
