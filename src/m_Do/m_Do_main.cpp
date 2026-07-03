@@ -689,6 +689,7 @@ int game_main(int argc, char* argv[]) {
             ("console", "Show the Windows console window for logs", cxxopts::value<bool>()->default_value("false")->implicit_value("true"))
             ("dvd", "Path to DVD image file", cxxopts::value<std::string>())
             ("mods", "Path to mods directory", cxxopts::value<std::string>())
+            ("dump-textures", "Dump drawn textures to <config-dir>/texture_dumps as hash-named .dds (authoring aid for texture_replacements)", cxxopts::value<bool>()->default_value("false")->implicit_value("true"))
             ("backend", "Graphics API backend to use (auto, d3d12, metal, vulkan, null)", cxxopts::value<std::string>())
             ("cvar", "Override configuration variables without modifying config", cxxopts::value<std::vector<std::string>>());
 
@@ -740,7 +741,9 @@ int game_main(int argc, char* argv[]) {
         config.pauseOnFocusLost = dusk::getSettings().game.pauseOnFocusLost;
         config.imGuiInitCallback = &aurora_imgui_init_callback;
         config.allowTextureReplacements = true;
-        config.allowTextureDumps = false;
+        // Off by default (normal users never dump); enable with --dump-textures
+        // to capture the hash-named .dds files needed to author replacements.
+        config.allowTextureDumps = parsed_arg_options["dump-textures"].as<bool>();
         auroraInfo = aurora_initialize(argc, argv, &config);
     }
 
